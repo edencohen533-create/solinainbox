@@ -1,0 +1,27 @@
+import { auth } from "@/lib/auth";
+import { hasRole, ROLES_ADMIN } from "@/lib/auth-guards";
+import { AccessDenied } from "@/components/shared/access-denied";
+import { getActiveProviderSummary } from "@/server/services/provider-credential-service";
+import { WhatsAppProviderForm } from "@/components/settings/whatsapp-provider-form";
+
+export default async function WhatsAppSettingsPage() {
+  const session = await auth();
+
+  if (!hasRole(session, ROLES_ADMIN)) {
+    return <AccessDenied />;
+  }
+
+  const summary = await getActiveProviderSummary();
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const webhookUrl = `${baseUrl}/api/webhooks/whatsapp`;
+
+  return (
+    <div className="p-6">
+      <h1 className="mb-1 text-lg font-semibold">חיבור וואטסאפ</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        כרגע המערכת עובדת מול ספק מדומה. חבר כאן את Meta WhatsApp Cloud API כדי לשלוח ולקבל הודעות אמיתיות.
+      </p>
+      <WhatsAppProviderForm initialSummary={summary} webhookUrl={webhookUrl} />
+    </div>
+  );
+}

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { MockWhatsAppProvider } from "./mock-whatsapp-provider";
+import { MetaWhatsAppProvider, type MetaWhatsAppConfig } from "./meta-whatsapp-provider";
 import type { WhatsAppProvider } from "./whatsapp-provider";
 
 const mockProvider = new MockWhatsAppProvider();
@@ -8,8 +9,8 @@ const mockProvider = new MockWhatsAppProvider();
  * Resolves the currently active WhatsApp provider from the
  * ProviderCredential table, defaulting to the mock provider when none is
  * configured as active. All call sites should go through this registry
- * rather than importing MockWhatsAppProvider directly, so swapping in a
- * real provider later is a one-line config change.
+ * rather than importing a concrete provider directly, so swapping providers
+ * is a config change, not a code change.
  */
 export async function getActiveProvider(): Promise<WhatsAppProvider> {
   const active = await prisma.providerCredential.findFirst({ where: { isActive: true } });
@@ -18,9 +19,12 @@ export async function getActiveProvider(): Promise<WhatsAppProvider> {
     return mockProvider;
   }
 
-  // Real providers (meta_whatsapp_cloud_api, telnyx) are implemented later —
-  // see src/server/providers/whatsapp-provider.ts for the interface they
-  // need to satisfy and README for the plug-in point.
+  if (active.provider === "meta_whatsapp_cloud_api") {
+    return new MetaWhatsAppProvider(active.config as unknown as MetaWhatsAppConfig);
+  }
+
+  // Other providers (e.g. Telnyx) can be added the same way: implement
+  // WhatsAppProvider, then add a case here.
   throw new Error(`No implementation registered for provider "${active.provider}"`);
 }
 

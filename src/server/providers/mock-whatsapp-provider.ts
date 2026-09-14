@@ -33,6 +33,10 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
     return true;
   }
 
+  verifyWebhookChallenge(_mode: string | null, _token: string | null, challenge: string | null): string | null {
+    return challenge;
+  }
+
   async receiveWebhook(): Promise<void> {
     // Not used by the mock — inbound messages go through simulateInbound()
     // instead. Kept to satisfy the WhatsAppProvider interface for parity

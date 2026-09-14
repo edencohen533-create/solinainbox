@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +21,14 @@ const ROLE_LABELS: Record<string, string> = {
   AGENT: "נציג",
 };
 
-export function UserTable({ users }: { users: UserRow[] }) {
-  const router = useRouter();
+export function UserTable({ users: initialUsers }: { users: UserRow[] }) {
+  const [users, setUsers] = useState(initialUsers);
   const [pending, setPending] = useState<string | null>(null);
 
   async function toggleActive(id: string, isActive: boolean) {
     setPending(id);
+    // Optimistic update — flip it immediately, roll back only on failure.
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isActive } : u)));
     try {
       const res = await fetch(`/api/settings/users/${id}`, {
         method: "PATCH",
@@ -35,10 +36,9 @@ export function UserTable({ users }: { users: UserRow[] }) {
         body: JSON.stringify({ isActive }),
       });
       if (!res.ok) {
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isActive: !isActive } : u)));
         toast.error("שגיאה בעדכון המשתמש");
-        return;
       }
-      router.refresh();
     } finally {
       setPending(null);
     }

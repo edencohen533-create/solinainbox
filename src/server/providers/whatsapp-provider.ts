@@ -29,6 +29,9 @@ export interface WhatsAppProvider {
   sendTemplate(payload: OutboundMessagePayload): Promise<SendResult>;
   uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string }>;
   getMessageStatus(providerMessageId: string): Promise<MessageStatusResult>;
+  /** POST webhook signature verification (e.g. X-Hub-Signature-256). */
   verifyWebhook(headers: Headers, rawBody: string): boolean;
+  /** GET webhook handshake (Meta's hub.mode/hub.verify_token/hub.challenge). Returns the challenge to echo back, or null to reject. */
+  verifyWebhookChallenge(mode: string | null, token: string | null, challenge: string | null): string | null;
   receiveWebhook(payload: unknown): Promise<void>;
 }

@@ -1,9 +1,20 @@
+import { auth } from "@/lib/auth";
+import { listConversations } from "@/server/services/conversation-service";
 import { ConversationListPane } from "@/components/inbox/conversation-list";
+import type { ConversationListItem } from "@/types/domain";
 
-export default function InboxLayout({ children }: { children: React.ReactNode }) {
+export default async function InboxLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  // Server-rendered, unfiltered initial list so /inbox has real content on
+  // first paint instead of a client-side fetch-then-skeleton flash. The
+  // client component only re-fetches when a filter is applied or a
+  // realtime event arrives.
+  const conversations = session ? await listConversations(session) : [];
+  const initialConversations: ConversationListItem[] = JSON.parse(JSON.stringify(conversations));
+
   return (
     <div className="flex h-full">
-      <ConversationListPane />
+      <ConversationListPane initialConversations={initialConversations} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );

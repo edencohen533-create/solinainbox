@@ -3,6 +3,9 @@ import { AutomationTrigger, ConversationSource, ConversationStatus, MessageDirec
 import { publishConversationUpdated, publishNewMessage } from "@/lib/realtime/publish";
 import { writeAuditLog } from "@/lib/audit";
 import { evaluateTrigger, scheduleNoReplyChecks } from "@/server/services/automation-service";
+import { getActiveProvider } from "@/server/providers/provider-registry";
+import { MockWhatsAppProvider } from "@/server/providers/mock-whatsapp-provider";
+import type { OutboundMessagePayload } from "@/server/providers/whatsapp-provider";
 
 export interface CreateInboundMessageInput {
   contactId: string;
@@ -114,15 +117,35 @@ export interface CreateOutboundMessageInput {
 export async function createOutboundMessage(input: CreateOutboundMessageInput) {
   const now = new Date();
 
+  const conversation = await prisma.conversation.findUniqueOrThrow({
+    where: { id: input.conversationId },
+    include: { contact: true },
+  });
+
+  const provider = await getActiveProvider();
+  const messageType = input.templateId ? "TEMPLATE" : (input.type ?? MessageType.TEXT);
+  const outboundPayload: OutboundMessagePayload = {
+    conversationId: input.conversationId,
+    to: conversation.contact.phone,
+    type: messageType as OutboundMessagePayload["type"],
+    body: input.body,
+    templateId: input.templateId,
+  };
+
+  const sendResult = input.templateId
+    ? await provider.sendTemplate(outboundPayload)
+    : await provider.sendMessage(outboundPayload);
+
   const message = await prisma.message.create({
     data: {
       conversationId: input.conversationId,
       direction: MessageDirection.OUTBOUND,
       type: input.type ?? MessageType.TEXT,
       body: input.body,
-      status: MessageStatus.SENT,
+      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : MessageStatus.SENT,
       sentByUserId: input.sentByUserId,
       templateId: input.templateId,
+      providerMessageId: sendResult.providerMessageId || null,
       createdAt: now,
     },
   });
@@ -138,7 +161,7 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
     entityType: "Conversation",
     entityId: input.conversationId,
     conversationId: input.conversationId,
-    metadata: { messageId: message.id },
+    metadata: { messageId: message.id, providerError: sendResult.error ?? null },
   });
 
   await publishNewMessage({
@@ -154,8 +177,12 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
     },
   });
 
-  // Simulate WhatsApp delivery/read progression for the mock provider.
-  void simulateDeliveryProgression(message.id);
+  // Real providers report delivery/read progression via webhook status
+  // callbacks (see MetaWhatsAppProvider.receiveWebhook); the mock provider
+  // has no external caller, so simulate the same progression locally.
+  if (provider instanceof MockWhatsAppProvider && sendResult.status !== "FAILED") {
+    void simulateDeliveryProgression(message.id);
+  }
 
   return { conversation: updated, message };
 }

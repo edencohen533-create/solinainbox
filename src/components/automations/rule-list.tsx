@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -32,12 +31,14 @@ const ACTION_LABELS: Record<string, string> = {
   SEND_TEMPLATE: "שליחת תבנית",
 };
 
-export function RuleList({ rules }: { rules: Rule[] }) {
-  const router = useRouter();
+export function RuleList({ rules: initialRules }: { rules: Rule[] }) {
+  const [rules, setRules] = useState(initialRules);
   const [pending, setPending] = useState<string | null>(null);
 
   async function toggleActive(id: string, isActive: boolean) {
     setPending(id);
+    // Optimistic update — flip it immediately, roll back only on failure.
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, isActive } : r)));
     try {
       const res = await fetch(`/api/automations/rules/${id}`, {
         method: "PATCH",
@@ -45,10 +46,9 @@ export function RuleList({ rules }: { rules: Rule[] }) {
         body: JSON.stringify({ isActive }),
       });
       if (!res.ok) {
+        setRules((prev) => prev.map((r) => (r.id === id ? { ...r, isActive: !isActive } : r)));
         toast.error("שגיאה בעדכון החוק");
-        return;
       }
-      router.refresh();
     } finally {
       setPending(null);
     }

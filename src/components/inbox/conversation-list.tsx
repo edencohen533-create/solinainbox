@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
@@ -30,10 +30,10 @@ function initials(name: string) {
     .join("");
 }
 
-export function ConversationListPane() {
+export function ConversationListPane({ initialConversations }: { initialConversations: ConversationListItem[] }) {
   const searchParams = useSearchParams();
   const activeId = useParams<{ conversationId?: string }>().conversationId;
-  const [conversations, setConversations] = useState<ConversationListItem[] | null>(null);
+  const [conversations, setConversations] = useState<ConversationListItem[] | null>(initialConversations);
 
   const filter = searchParams.get("filter");
   const statusParam = filter && ["open", "pending", "resolved", "all", "mine", "unassigned"].includes(filter) ? filter : undefined;
@@ -56,10 +56,18 @@ export function ConversationListPane() {
     setConversations(data.conversations);
   }, [statusParam]);
 
+  // Skip the redundant initial fetch when unfiltered — the server already
+  // rendered that exact data into `initialConversations`. Any other filter
+  // (or a later change back to unfiltered) still fetches normally.
+  const skippedInitialFetch = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching data on mount/filter-change, not deriving state from props.
+    if (!skippedInitialFetch.current && statusParam === undefined) {
+      skippedInitialFetch.current = true;
+      return;
+    }
+    skippedInitialFetch.current = true;
     fetchConversations();
-  }, [fetchConversations]);
+  }, [fetchConversations, statusParam]);
 
   useRealtimeChannel(
     INBOX_CHANNEL,
