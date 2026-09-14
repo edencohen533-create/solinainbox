@@ -1,0 +1,79 @@
+import { prisma } from "@/lib/prisma";
+import { ConversationStatus, MessageDirection } from "@prisma/client";
+
+export interface AnalyticsRange {
+  from: Date;
+  to: Date;
+}
+
+export async function getOverviewStats(range: AnalyticsRange) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const [openConversations, messagesToday] = await Promise.all([
+    prisma.conversation.count({ where: { status: ConversationStatus.OPEN } }),
+    prisma.message.count({ where: { createdAt: { gte: startOfToday } } }),
+  ]);
+
+  const conversationsInRange = await prisma.conversation.findMany({
+    where: { createdAt: { gte: range.from, lte: range.to } },
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      updatedAt: true,
+      assignedAgentId: true,
+      assignedAgent: { select: { name: true } },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        select: { direction: true, createdAt: true },
+      },
+    },
+  });
+
+  let totalFirstResponseMs = 0;
+  let firstResponseCount = 0;
+
+  for (const conversation of conversationsInRange) {
+    const firstInbound = conversation.messages.find((m) => m.direction === MessageDirection.INBOUND);
+    const firstOutboundAfter = conversation.messages.find(
+      (m) => m.direction === MessageDirection.OUTBOUND && firstInbound && m.createdAt > firstInbound.createdAt
+    );
+    if (firstInbound && firstOutboundAfter) {
+      totalFirstResponseMs += firstOutboundAfter.createdAt.getTime() - firstInbound.createdAt.getTime();
+      firstResponseCount++;
+    }
+  }
+
+  const resolved = conversationsInRange.filter(
+    (c) => c.status === ConversationStatus.RESOLVED || c.status === ConversationStatus.CLOSED
+  );
+  const avgResolutionMs =
+    resolved.length > 0
+      ? resolved.reduce((sum, c) => sum + (c.updatedAt.getTime() - c.createdAt.getTime()), 0) / resolved.length
+      : 0;
+
+  const perAgent = new Map<string, { name: string; total: number; resolved: number }>();
+  for (const conversation of conversationsInRange) {
+    if (!conversation.assignedAgentId || !conversation.assignedAgent) continue;
+    const entry = perAgent.get(conversation.assignedAgentId) ?? {
+      name: conversation.assignedAgent.name,
+      total: 0,
+      resolved: 0,
+    };
+    entry.total++;
+    if (conversation.status === ConversationStatus.RESOLVED || conversation.status === ConversationStatus.CLOSED) {
+      entry.resolved++;
+    }
+    perAgent.set(conversation.assignedAgentId, entry);
+  }
+
+  return {
+    openConversations,
+    messagesToday,
+    avgFirstResponseMinutes: firstResponseCount > 0 ? Math.round(totalFirstResponseMs / firstResponseCount / 60000) : null,
+    avgResolutionHours: resolved.length > 0 ? Math.round((avgResolutionMs / 3_600_000) * 10) / 10 : null,
+    conversationsInRangeCount: conversationsInRange.length,
+    perAgent: Array.from(perAgent.values()),
+  };
+}

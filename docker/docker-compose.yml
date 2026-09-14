@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../.env
+    depends_on:
+      - postgres
+    profiles: ["full"]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: solina
+      POSTGRES_PASSWORD: solina
+      POSTGRES_DB: solinainbox
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    profiles: ["local-db"]
+
+volumes:
+  pg_data:

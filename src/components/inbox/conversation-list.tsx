@@ -1,0 +1,135 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
+import { he } from "date-fns/locale";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Ltr } from "@/components/shared/ltr";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { useRealtimeChannel } from "@/lib/realtime/use-realtime-channel";
+import { INBOX_CHANNEL } from "@/lib/realtime/channels";
+import type { ConversationListItem } from "@/types/domain";
+
+const STATUS_LABELS: Record<string, string> = {
+  OPEN: "פתוח",
+  PENDING: "ממתין",
+  RESOLVED: "טופל",
+  CLOSED: "סגור",
+};
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("");
+}
+
+export function ConversationListPane() {
+  const searchParams = useSearchParams();
+  const activeId = useParams<{ conversationId?: string }>().conversationId;
+  const [conversations, setConversations] = useState<ConversationListItem[] | null>(null);
+
+  const filter = searchParams.get("filter");
+  const statusParam = filter && ["open", "pending", "resolved", "all", "mine", "unassigned"].includes(filter) ? filter : undefined;
+
+  // Fetches the list from the server and syncs it into state — this is the
+  // documented React pattern for an effect that synchronizes with an
+  // external system (a network request), not a derived-state anti-pattern,
+  // so the set-state-in-effect lint rule's false positive is suppressed below.
+  const fetchConversations = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (statusParam === "open") params.set("status", "OPEN");
+    if (statusParam === "pending") params.set("status", "PENDING");
+    if (statusParam === "resolved") params.set("status", "RESOLVED");
+    if (statusParam === "mine") params.set("assignedTo", "me");
+    if (statusParam === "unassigned") params.set("assignedTo", "unassigned");
+
+    const res = await fetch(`/api/conversations?${params.toString()}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setConversations(data.conversations);
+  }, [statusParam]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching data on mount/filter-change, not deriving state from props.
+    fetchConversations();
+  }, [fetchConversations]);
+
+  useRealtimeChannel(
+    INBOX_CHANNEL,
+    useCallback(() => {
+      fetchConversations();
+    }, [fetchConversations])
+  );
+
+  return (
+    <div className="flex h-full w-80 flex-col overflow-hidden border-e">
+      <div className="flex-1 overflow-y-auto">
+        {conversations === null && (
+          <div className="space-y-2 p-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        )}
+
+        {conversations !== null && conversations.length === 0 && (
+          <EmptyState title="אין שיחות להצגה" description="נסה לשנות את הסינון או להמתין להודעות חדשות." />
+        )}
+
+        {conversations?.map((conversation) => {
+          const lastMessage = conversation.messages?.[0];
+          return (
+            <Link
+              key={conversation.id}
+              href={`/inbox/${conversation.id}`}
+              className={cn(
+                "flex gap-3 border-b p-3 hover:bg-muted/50",
+                activeId === conversation.id && "bg-muted"
+              )}
+            >
+              <Avatar className="h-10 w-10 shrink-0">
+                <AvatarFallback>{initials(conversation.contact.name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium">{conversation.contact.name}</span>
+                  {conversation.lastMessageAt && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(conversation.lastMessageAt), { locale: he, addSuffix: true })}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <Ltr>{conversation.contact.phone}</Ltr>
+                </div>
+                {lastMessage?.body && (
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{lastMessage.body}</p>
+                )}
+                <div className="mt-1 flex items-center gap-1.5">
+                  <Badge variant="outline" className="text-[10px]">
+                    {STATUS_LABELS[conversation.status]}
+                  </Badge>
+                  {conversation.assignedAgent && (
+                    <span className="text-[10px] text-muted-foreground">{conversation.assignedAgent.name}</span>
+                  )}
+                  {conversation.unreadCount > 0 && (
+                    <Badge className="ms-auto h-4 min-w-4 justify-center rounded-full px-1 text-[10px]">
+                      {conversation.unreadCount}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,34 @@
+export interface OutboundMessagePayload {
+  conversationId: string;
+  to: string;
+  type: "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT" | "TEMPLATE";
+  body?: string;
+  mediaUrl?: string;
+  templateId?: string;
+  templateVariables?: Record<string, string>;
+}
+
+export interface SendResult {
+  providerMessageId: string;
+  status: "SENT" | "FAILED";
+  error?: string;
+}
+
+export interface MessageStatusResult {
+  status: "SENT" | "DELIVERED" | "READ" | "FAILED";
+}
+
+/**
+ * Every WhatsApp integration (mock today, Meta Cloud API / Telnyx later)
+ * implements this interface. Services and API routes only ever depend on
+ * this shape, resolved through the provider registry — never on a concrete
+ * implementation — so swapping providers touches no calling code.
+ */
+export interface WhatsAppProvider {
+  sendMessage(payload: OutboundMessagePayload): Promise<SendResult>;
+  sendTemplate(payload: OutboundMessagePayload): Promise<SendResult>;
+  uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string }>;
+  getMessageStatus(providerMessageId: string): Promise<MessageStatusResult>;
+  verifyWebhook(headers: Headers, rawBody: string): boolean;
+  receiveWebhook(payload: unknown): Promise<void>;
+}

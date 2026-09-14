@@ -1,0 +1,59 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { AutomationTrigger } from "@prisma/client";
+import { evaluateTrigger } from "@/server/services/automation-service";
+import { writeAuditLog } from "@/lib/audit";
+
+const tagSchema = z.object({ tagId: z.string() });
+
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: conversationId } = await params;
+  const parsed = tagSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const { tagId } = parsed.data;
+
+  await prisma.conversationTag.upsert({
+    where: { conversationId_tagId: { conversationId, tagId } },
+    update: {},
+    create: { conversationId, tagId },
+  });
+
+  await writeAuditLog({
+    actorUserId: session.user.id,
+    action: "conversation.tag_added",
+    entityType: "Conversation",
+    entityId: conversationId,
+    conversationId,
+    metadata: { tagId },
+  });
+
+  await evaluateTrigger(AutomationTrigger.TAG_ADDED, { conversationId, tagId });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id: conversationId } = await params;
+  const parsed = tagSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  await prisma.conversationTag.deleteMany({ where: { conversationId, tagId: parsed.data.tagId } });
+  return NextResponse.json({ ok: true });
+}

@@ -1,0 +1,23 @@
+// Client-facing shapes (post-JSON-serialization: Date -> string) shared
+// between the API routes and the client components that consume them.
+
+export interface ConversationListItem {
+  id: string;
+  status: "OPEN" | "PENDING" | "RESOLVED" | "CLOSED";
+  unreadCount: number;
+  lastMessageAt: string | null;
+  contact: { id: string; name: string; phone: string };
+  assignedAgent: { id: string; name: string } | null;
+  tags: { tag: { id: string; name: string; color: string } }[];
+  messages?: { body: string | null; direction: "INBOUND" | "OUTBOUND" }[];
+}
+
+export interface MessageItem {
+  id: string;
+  direction: "INBOUND" | "OUTBOUND";
+  type: "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT" | "LINK" | "TEMPLATE";
+  body: string | null;
+  status: "QUEUED" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  createdAt: string;
+  sentByUser: { id: string; name: string } | null;
+}
