@@ -67,7 +67,7 @@ export function ChatPanel({
         })}
         <div ref={bottomRef} />
       </div>
-      <MessageComposer conversationId={conversationId} disabled={composerDisabled} disabledReason={composerDisabledReason} />
+      <MessageComposer onSent={(message) => setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])} conversationId={conversationId} disabled={composerDisabled} disabledReason={composerDisabledReason} />
     </div>
   );
 }

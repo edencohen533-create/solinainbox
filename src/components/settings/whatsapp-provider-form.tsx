@@ -124,11 +124,11 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
           />
         </div>
         <div className="space-y-1.5">
-          <Label>App Secret (אופציונלי, לאימות חתימת webhook)</Label>
+          <Label>App Secret (חובה, לאימות חתימת webhook)</Label>
           <Input dir="ltr" className="text-left" type="password" value={appSecret} onChange={(e) => setAppSecret(e.target.value)} />
         </div>
 
-        <Button onClick={handleActivateMeta} disabled={isSubmitting || !accessToken || !phoneNumberId || !webhookVerifyToken}>
+        <Button onClick={handleActivateMeta} disabled={isSubmitting || !accessToken || !phoneNumberId || !webhookVerifyToken || !appSecret}>
           {isSubmitting ? "מפעיל..." : "שמור והפעל"}
         </Button>
       </div>

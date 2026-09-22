@@ -1,3 +1,4 @@
+import { renderTemplate, validateTemplateVariables } from "@/lib/campaigns";
 import { prisma } from "@/lib/prisma";
 import { AutomationTrigger, ConversationSource, ConversationStatus, MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { publishConversationUpdated, publishNewMessage } from "@/lib/realtime/publish";
@@ -23,6 +24,9 @@ export interface CreateInboundMessageInput {
  * change when a real provider is plugged in.
  */
 export async function createInboundMessage(input: CreateInboundMessageInput) {
+  if (["הסר", "הסרה", "הסר אותי", "stop", "unsubscribe"].includes(input.body.trim().toLowerCase())) {
+    await prisma.contact.update({ where: { id: input.contactId }, data: { consentStatus: "OPTED_OUT" } });
+  }
   const openConversation = await prisma.conversation.findFirst({
     where: {
       contactId: input.contactId,
@@ -112,7 +116,12 @@ export interface CreateOutboundMessageInput {
   type?: MessageType;
   sentByUserId: string;
   templateId?: string;
+  templateVariables?: Record<string, string>;
+  requireOptIn?: boolean;
+  campaignRecipientId?: string;
 }
+
+export class MessagePolicyError extends Error {}
 
 export async function createOutboundMessage(input: CreateOutboundMessageInput) {
   const now = new Date();
@@ -122,37 +131,61 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
     include: { contact: true },
   });
 
+  if (conversation.contact.consentStatus === "OPTED_OUT" || (input.requireOptIn && conversation.contact.consentStatus !== "OPTED_IN")) {
+    throw new MessagePolicyError("איש הקשר אינו מאשר קבלת הודעות");
+  }
+  let body = input.body;
+  if (input.templateId) {
+    const template = await prisma.template.findUnique({ where: { id: input.templateId } });
+    if (!template || template.status !== "APPROVED") throw new MessagePolicyError("התבנית אינה מאושרת לשליחה");
+    try { validateTemplateVariables(template.body, input.templateVariables ?? {}); }
+    catch (error) { throw new MessagePolicyError((error as Error).message); }
+    body = renderTemplate(template.body, input.templateVariables ?? {});
+  } else if (!conversation.lastInboundAt || now.getTime() - conversation.lastInboundAt.getTime() > 86400000) {
+    throw new MessagePolicyError("חלון המענה הסתיים. יש לשלוח תבנית מאושרת");
+  }
   const provider = await getActiveProvider();
   const messageType = input.templateId ? "TEMPLATE" : (input.type ?? MessageType.TEXT);
   const outboundPayload: OutboundMessagePayload = {
     conversationId: input.conversationId,
     to: conversation.contact.phone,
     type: messageType as OutboundMessagePayload["type"],
-    body: input.body,
+    body,
     templateId: input.templateId,
+    templateVariables: input.templateVariables,
   };
 
-  const sendResult = input.templateId
-    ? await provider.sendTemplate(outboundPayload)
-    : await provider.sendMessage(outboundPayload);
-
-  const message = await prisma.message.create({
+  // Persist before contacting the provider. A timeout may mean it accepted
+  // the message, so retain the queued row and never retry automatically.
+  const queued = await prisma.message.create({
     data: {
       conversationId: input.conversationId,
       direction: MessageDirection.OUTBOUND,
-      type: input.type ?? MessageType.TEXT,
-      body: input.body,
-      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : MessageStatus.SENT,
+      type: input.templateId ? MessageType.TEMPLATE : (input.type ?? MessageType.TEXT),
+      body,
+      status: MessageStatus.QUEUED,
       sentByUserId: input.sentByUserId,
       templateId: input.templateId,
-      providerMessageId: sendResult.providerMessageId || null,
       createdAt: now,
+    },
+  });
+  if (input.campaignRecipientId) {
+    await prisma.campaignRecipient.update({ where: { id: input.campaignRecipientId }, data: { messageId: queued.id } });
+  }
+  const sendResult = input.templateId
+    ? await provider.sendTemplate(outboundPayload)
+    : await provider.sendMessage(outboundPayload);
+  const message = await prisma.message.update({
+    where: { id: queued.id },
+    data: {
+      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : MessageStatus.SENT,
+      providerMessageId: sendResult.providerMessageId || null,
     },
   });
 
   const updated = await prisma.conversation.update({
     where: { id: input.conversationId },
-    data: { lastMessageAt: now },
+    data: sendResult.status === "FAILED" ? {} : { lastMessageAt: now },
   });
 
   await writeAuditLog({

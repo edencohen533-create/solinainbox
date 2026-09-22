@@ -6,9 +6,11 @@ const conversationCreate = vi.fn();
 const conversationUpdate = vi.fn();
 const messageCreate = vi.fn();
 const auditLogCreate = vi.fn();
+const contactUpdate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    contact: { update: (...args: unknown[]) => contactUpdate(...args) },
     conversation: {
       findFirst: (...args: unknown[]) => conversationFindFirst(...args),
       create: (...args: unknown[]) => conversationCreate(...args),
@@ -44,6 +46,7 @@ describe("createInboundMessage (mock provider inbound path)", () => {
     conversationUpdate.mockReset();
     messageCreate.mockReset();
     auditLogCreate.mockReset();
+    contactUpdate.mockReset();
   });
 
   afterEach(() => {
@@ -103,6 +106,14 @@ describe("createInboundMessage (mock provider inbound path)", () => {
     expect(conversationCreate).not.toHaveBeenCalled();
     expect(result.isNewConversation).toBe(false);
     expect(result.conversation.id).toBe("conv-existing");
+  });
+
+  it("honors an inbound unsubscribe before evaluating send automations", async () => {
+    conversationFindFirst.mockResolvedValue({ id: "conv-1", status: ConversationStatus.OPEN });
+    messageCreate.mockResolvedValue({ id: "msg-stop", direction: MessageDirection.INBOUND, type: MessageType.TEXT, body: "הסר", status: MessageStatus.SENT, createdAt: new Date() });
+    conversationUpdate.mockResolvedValue({ id: "conv-1", unreadCount: 1, lastMessageAt: new Date() });
+    await createInboundMessage({ contactId: "contact-1", body: " הסר " });
+    expect(contactUpdate).toHaveBeenCalledWith({ where: { id: "contact-1" }, data: { consentStatus: "OPTED_OUT" } });
   });
 
   it("publishes a realtime event for both the conversation channel and the inbox channel", async () => {

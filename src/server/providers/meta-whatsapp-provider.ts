@@ -1,3 +1,4 @@
+import { templateParameterKeys, validateTemplateVariables } from "@/lib/campaigns";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { ConversationSource, MessageStatus, MessageType } from "@prisma/client";
@@ -60,6 +61,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, data };
@@ -99,14 +101,15 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     }
 
     const template = await prisma.template.findUnique({ where: { id: payload.templateId } });
-    if (!template) {
-      return { providerMessageId: "", status: "FAILED", error: "Template not found" };
+    if (!template || template.status !== "APPROVED") {
+      return { providerMessageId: "", status: "FAILED", error: "Template is not approved" };
     }
 
     const to = this.toE164Digits(payload.to);
-    const parameters = Object.values(payload.templateVariables ?? {}).map((value) => ({
-      type: "text",
-      text: value,
+    try { validateTemplateVariables(template.body, payload.templateVariables ?? {}); }
+    catch { return { providerMessageId: "", status: "FAILED", error: "Invalid template variables" }; }
+    const parameters = templateParameterKeys(template.body).map((key) => ({
+      type: "text", text: payload.templateVariables![key],
     }));
 
     const { ok, data } = await this.post("/messages", {
@@ -156,10 +159,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   verifyWebhook(headers: Headers, rawBody: string): boolean {
     if (!this.config.appSecret) {
-      // No app secret configured — can't verify signatures. Accept but log,
-      // rather than hard-blocking a webhook someone hasn't fully set up.
-      console.warn("[meta-whatsapp] appSecret not configured; skipping webhook signature verification");
-      return true;
+      return false;
     }
 
     const signatureHeader = headers.get("x-hub-signature-256");
@@ -232,7 +232,10 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     const timestamp = status.timestamp ? new Date(Number(status.timestamp) * 1000) : new Date();
 
     await prisma.message.updateMany({
-      where: { providerMessageId: status.id },
+      where: { providerMessageId: status.id, status: { in:
+        mappedStatus === "READ" ? ["QUEUED", "SENT", "DELIVERED"] :
+        mappedStatus === "DELIVERED" ? ["QUEUED", "SENT"] : ["QUEUED", "SENT"],
+      } },
       data: {
         status: mappedStatus,
         ...(mappedStatus === MessageStatus.DELIVERED ? { deliveredAt: timestamp } : {}),
