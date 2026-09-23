@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ type Template = { id: string; name: string; body: string; language?: string };
 export function MessageComposer({ conversationId, disabled, disabledReason, onSent }: {
   conversationId: string; disabled?: boolean; disabledReason?: string; onSent?: (message: MessageItem) => void;
 }) {
+  const draftWrites = useRef<Promise<void>>(Promise.resolve());
   const draftEdited = useRef(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestId = useRef<string | null>(null);
@@ -28,14 +29,25 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
   const template = templates?.find((t) => t.id === templateId);
   const canSend = showTemplates ? !!template && templateParameterKeys(template.body).every((key) => variables[key]?.trim()) : !disabled && (!!value.trim() || !!file);
 
+  // Serialize saves and clears: a slow clear after sending must never overwrite
+  // the next message the agent has already started drafting.
+  const saveDraft = useCallback((body: string) => {
+    draftWrites.current = draftWrites.current.catch(() => {}).then(async () => {
+      const response = await fetch(`/api/conversations/${conversationId}/draft`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
+      if (!response.ok) throw new Error("Draft save failed");
+    });
+    return draftWrites.current;
+  }, [conversationId]);
   useEffect(() => {
-    fetch(`/api/conversations/${conversationId}/draft`).then((r) => r.ok ? r.json() : null).then((d) => { if (d?.body && !draftEdited.current) setValue(d.body); }).catch(() => {});
+    let alive = true;
+    fetch(`/api/conversations/${conversationId}/draft`).then((r) => r.ok ? r.json() : null).then((d) => { if (alive && d?.body && !draftEdited.current) setValue(d.body); }).catch(() => {});
+    return () => { alive = false; };
   }, [conversationId]);
   useEffect(() => {
     if (!draftEdited.current) return;
-    draftTimer.current = setTimeout(() => { void fetch(`/api/conversations/${conversationId}/draft`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: value }) }).catch(() => {}); }, 600);
+    draftTimer.current = setTimeout(() => { void saveDraft(value).catch(() => toast.error("שמירת הטיוטה נכשלה. אין לצאת לפני העתקת הטקסט")); }, 600);
     return () => { if (draftTimer.current) clearTimeout(draftTimer.current); };
-  }, [value, conversationId]);
+  }, [value, saveDraft]);
   async function loadTemplates() {
     requestId.current = null;
     setShowTemplates(!showTemplates);
@@ -68,7 +80,7 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
       if (draftTimer.current) clearTimeout(draftTimer.current);
       draftEdited.current = false;
       requestId.current = null;
-      void fetch(`/api/conversations/${conversationId}/draft`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: "" }) }).catch(() => {});
+      void saveDraft("").catch(() => {});
       setValue(""); setFile(null); setTemplateId(""); setVariables({});
     } catch { toast.error("שגיאת תקשורת. יש לבדוק אם ההודעה נשלחה לפני ניסיון נוסף"); }
     finally { setIsSending(false); }

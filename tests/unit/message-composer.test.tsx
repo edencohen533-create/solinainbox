@@ -32,3 +32,27 @@ describe("message composer", () => {
     expect(onSent).not.toHaveBeenCalled();
   });
 });
+it("does not let a delayed clear overwrite the next draft", async () => {
+  let finishClear!: () => void;
+  const clearPending = new Promise<void>((resolve) => { finishClear = resolve; });
+  const writes: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, options?: RequestInit) => {
+    if (url.endsWith("/messages")) return { ok: true, json: async () => ({ message: { id: "m", body: "first" } }) };
+    if (options?.method === "PUT") {
+      const body = JSON.parse(String(options.body)).body;
+      writes.push(body);
+      if (body === "") await clearPending;
+      return { ok: true, json: async () => ({ ok: true }) };
+    }
+    return { ok: true, json: async () => ({ body: "" }) };
+  }));
+  render(<MessageComposer conversationId="c" />);
+  fireEvent.change(screen.getByPlaceholderText("הקלד הודעה..."), { target: { value: "first" } });
+  fireEvent.click(screen.getByRole("button", { name: "שלח" }));
+  await waitFor(() => expect(screen.getByPlaceholderText("הקלד הודעה...")).toHaveValue(""));
+  fireEvent.change(screen.getByPlaceholderText("הקלד הודעה..."), { target: { value: "next draft" } });
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  expect(writes).toEqual([""]);
+  finishClear();
+  await waitFor(() => expect(writes).toEqual(["", "next draft"]));
+});

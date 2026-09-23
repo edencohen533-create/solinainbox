@@ -40,7 +40,7 @@ Next.js 16 / React → NextAuth והרשאות API → שירותי שרת → P
 
 | שכבה | ראיה | תוצאה / גבול |
 |---|---|---|
-| יחידה/שירותים/רכיבים | `npm test` | 115 בדיקות ב־22 קבצים; provider ו־DB מדומים במקום שבו נדרש |
+| יחידה/שירותים/רכיבים | `npm test` | 116 בדיקות בסבב מלא ב־22 קבצים, ועוד בדיקת fingerprint קטגוריה ממוקדת (117 בסך הכול); provider ו־DB מדומים במקום שבו נדרש |
 | DB אמיתי מבודד + Graph מדומה | `npm run test:qa` | 7 תרחישים עברו, 416 שניות; schema `solina_qa_20260923` בלבד |
 | קמפיין 10,000 | `tests/unit/campaign-runner.test.ts` | 500 מנות של20 דרך worker אמיתי עם DB מדומה; 10,000 dispatch mocks וללא שליחה נוספת במחזור נוסף |
 | CSV 10,000 | `tests/unit/contact-csv.test.ts` | נרמול/בדיקה של10,000 רשומות בזיכרון; לא benchmark של ייבוא DB |
@@ -79,3 +79,7 @@ Next.js 16 / React → NextAuth והרשאות API → שירותי שרת → P
 ## החלת שינויי מסד
 
 המיגרציה הוחלה בפרויקט Supabase `eeumuofgxiozcgzrveof` ב־23.09.2026 באמצעות apply_migration. אחרי השינוי:262 אנשי קשר,459 הודעות,0 קמפיינים,0 חיבורי Meta פעילים — זהים למספרים שלפניו. אומתו השדות החדשים,0 טבלאות public ללא RLS, ו־0 התראות ERROR/WARN. קריאות REST ציבוריות ל־User/Contact/Message/ProviderCredential נחסמו401. לא בוצע שינוי credentials או שליחה בפרודקשן.
+
+גרסת Preview נבנתה ב־Vercel בהצלחה: `dpl_Bhtun95nTe77xEV2mA7G7CjQ7RPx`, commit `e63d18c`. קישור עבודה: [PR #3](https://github.com/edencohen533-create/solinainbox/pull/3).
+
+בבדיקת הדפדפן התגלה מרוץ בין מחיקת טיוטה לאחר שליחה לבין שמירת ההודעה הבאה. המלחין מסדר כעת כתיבות טיוטה בטור; נוספה בדיקת רגרסיה עם תגובת clear מעוכבת. selector עמום שהצביע גם על רשימת השיחות וגם על תוכן הודעה הוגבל לבועת ההודעה.

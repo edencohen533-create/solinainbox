@@ -24,3 +24,9 @@ describe("campaign validation and personalization", () => {
     expect(renderTemplate("{{1}}, קיבלת {{2}}", variables)).toBe("שלום $& ישראל, קיבלת 50₪");
   });
 });
+it("pins the template category as well as the approved content", async () => {
+  const { templateFingerprint } = await import("@/server/services/campaign-snapshot");
+  const template = { name: "welcome", body: "Hello", language: "he", providerAccountId: "waba", providerTemplateId: "t", category: "UTILITY" };
+  expect(templateFingerprint(template)).not.toBe(templateFingerprint({ ...template, category: "MARKETING" }));
+  expect(templateFingerprint(template)).toBe(templateFingerprint({ ...template }));
+});
