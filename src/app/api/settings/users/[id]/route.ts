@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { organizationRequest } from "@/lib/organization-request";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -6,7 +8,7 @@ import { setUserActive, resetUserPassword } from "@/server/services/user-service
 
 const patchSchema = z.union([z.object({ isActive: z.boolean() }).strict(), z.object({ password: z.string().min(12).max(72).refine((value) => value !== "Password123!") }).strict()]);
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session || !hasRole(session, ROLES_ADMIN)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -19,8 +21,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if ("isActive" in parsed.data && !parsed.data.isActive && id === session.user.id) return NextResponse.json({ error: "לא ניתן להשבית את החשבון שלך" }, { status: 409 });
-  const user = "password" in parsed.data
-    ? await resetUserPassword(id, parsed.data.password, session.user.id)
-    : await setUserActive(id, parsed.data.isActive, session.user.id);
-  return NextResponse.json({ user: { id: user.id, isActive: user.isActive } });
-}
+  try {
+    const user = "password" in parsed.data
+      ? await resetUserPassword(id, parsed.data.password, session.user.id)
+      : await setUserActive(id, parsed.data.isActive, session.user.id);
+    return NextResponse.json({ user: { id: user.id, isActive: user.isActive } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return NextResponse.json({ error: "המשתמש לא נמצא" }, { status: 404 });
+    throw error;
+  }
+});

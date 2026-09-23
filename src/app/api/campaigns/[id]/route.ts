@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { prisma } from "@/lib/prisma";
 import { campaignActor } from "@/lib/campaign-auth";
 import { campaignActionSchema } from "@/lib/campaigns";
 import { CampaignError, changeCampaignStatus, campaignPreflight } from "@/server/services/campaign-service";
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const { id } = await params;
   if (new URL(request.url).searchParams.get("preflight") === "1") {
@@ -14,8 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const recipients = await prisma.campaignRecipient.findMany({ where: { campaignId: id }, orderBy: { id: "asc" }, take: 100, skip: (Math.floor(page) - 1) * 100, include: { contact: { select: { name: true, phone: true } } } });
   const messages = await prisma.message.findMany({ where: { id: { in: recipients.flatMap((r) => r.messageId ? [r.messageId] : []) } }, select: { id: true, status: true } });
   return Response.json({ recipients: recipients.map((r) => ({ ...r, deliveryStatus: messages.find((m) => m.id === r.messageId)?.status ?? null })) });
-}
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+});
+export const PATCH = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const { id } = await params;
   const parsed = campaignActionSchema.safeParse(await request.json().catch(() => null));
@@ -27,4 +28,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (error instanceof CampaignError) return Response.json({ error: error.message }, { status: 409 });
     throw error;
   }
-}
+});

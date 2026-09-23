@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -5,7 +6,7 @@ import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
 import { getMockProvider } from "@/server/providers/provider-registry";
 import { simulateInboundSchema } from "@/lib/validation/demo";
 
-export async function POST(request: Request) {
+export const POST = organizationRequest(async function(request: Request) {
   const session = await auth();
 
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) {
@@ -26,4 +27,4 @@ export async function POST(request: Request) {
   const { conversation, message } = await provider.simulateInbound(parsed.data);
 
   return NextResponse.json({ conversationId: conversation.id, messageId: message.id });
-}
+});

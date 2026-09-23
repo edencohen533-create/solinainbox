@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { requireOrganizationId } from "@/lib/organization-context";
 import bcrypt from "bcryptjs";
 import { MetaConnectionError } from "./meta-connection-service";
 import { checkMetaConnection } from "./meta-connection-service";
@@ -32,12 +34,15 @@ export async function activateMetaProvider(input: MetaProviderConfigInput, actor
   }
   await checkMetaConnection(input);
   const credential = await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(774291)`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${requireOrganizationId()}, 774291))`;
     await tx.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
-    const existing = await tx.providerCredential.findFirst({ where: { provider: "meta_whatsapp_cloud_api" } });
+    const existing = await tx.providerCredential.findFirst({ where: { provider: "meta_whatsapp_cloud_api", phoneNumberId: input.phoneNumberId } });
     return existing
-      ? tx.providerCredential.update({ where: { id: existing.id }, data: { config: input, isActive: true, sendingBlocked: false, lastCheckedAt: new Date(), lastConnectionError: null } })
-      : tx.providerCredential.create({ data: { provider: "meta_whatsapp_cloud_api", config: input, isActive: true, sendingBlocked: false, lastCheckedAt: new Date(), lastConnectionError: null } });
+      ? tx.providerCredential.update({ where: { id: existing.id }, data: { phoneNumberId: input.phoneNumberId, config: input, isActive: true, sendingBlocked: false, lastCheckedAt: new Date(), lastConnectionError: null } })
+      : tx.providerCredential.create({ data: { provider: "meta_whatsapp_cloud_api", phoneNumberId: input.phoneNumberId, config: input, isActive: true, sendingBlocked: false, lastCheckedAt: new Date(), lastConnectionError: null } });
+  }).catch((error) => {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new MetaConnectionError("המספר כבר משויך לחשבון אחר במערכת. נדרשת בדיקת בעלות לפני העברה");
+    throw error;
   });
 
   await writeAuditLog({
@@ -53,7 +58,7 @@ export async function activateMetaProvider(input: MetaProviderConfigInput, actor
 
 export async function activateMockProvider(actorUserId: string) {
   await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(774291)`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${requireOrganizationId()}, 774291))`;
     await tx.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
   });
 

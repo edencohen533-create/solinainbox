@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER, ROLES_ADMIN } from "@/lib/auth-guards";
 import { AccessDenied } from "@/components/shared/access-denied";
@@ -5,7 +6,7 @@ import { listUsers } from "@/server/services/user-service";
 import { UserTable } from "@/components/settings/user-table";
 import { NewUserDialog } from "@/components/settings/new-user-dialog";
 
-export default async function UsersSettingsPage() {
+export default organizationRequest(async function UsersSettingsPage() {
   const session = await auth();
 
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) {
@@ -24,4 +25,4 @@ export default async function UsersSettingsPage() {
       <UserTable users={users} canManage={canManage} />
     </div>
   );
-}
+});

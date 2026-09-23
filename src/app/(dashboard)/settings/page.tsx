@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import Link from "next/link";
 import { Users, MessageSquareText, Zap, Radio, Sparkles } from "lucide-react";
 import { auth } from "@/lib/auth";
@@ -12,7 +13,7 @@ interface SettingsLink {
   roles?: import("@prisma/client").Role[];
 }
 
-export default async function SettingsPage() {
+export default organizationRequest(async function SettingsPage() {
   const session = await auth();
 
   const links: SettingsLink[] = [
@@ -73,4 +74,4 @@ export default async function SettingsPage() {
       </div>
     </div>
   );
-}
+});

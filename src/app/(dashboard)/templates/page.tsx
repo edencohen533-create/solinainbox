@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { NewTemplateDialog } from "@/components/templates/new-template-dialog";
 import { listTemplates } from "@/server/services/template-service";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,7 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
   REJECTED: "נדחה",
 };
 
-export default async function TemplatesPage() {
+export default organizationRequest(async function TemplatesPage() {
   const [templates, actor] = await Promise.all([listTemplates(), campaignActor()]);
 
   return (
@@ -60,4 +61,4 @@ export default async function TemplatesPage() {
       </div>
     </div>
   );
-}
+});

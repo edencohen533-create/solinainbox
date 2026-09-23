@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { contactSchema } from "@/lib/validation/contact";
 import { createContact, listContacts, DuplicateContactError, InvalidPhoneError } from "@/server/services/contact-service";
 
-export async function GET(request: Request) {
+export const GET = organizationRequest(async function(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -13,9 +14,9 @@ export async function GET(request: Request) {
   const search = url.searchParams.get("search") ?? undefined;
   const contacts = await listContacts(session, search);
   return NextResponse.json({ contacts });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = organizationRequest(async function(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -38,4 +39,4 @@ export async function POST(request: Request) {
     }
     throw error;
   }
-}
+});

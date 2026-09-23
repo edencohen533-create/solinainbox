@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useEffectEvent } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { INBOX_CHANNEL, type RealtimeEvent } from "./channels";
 
-/** Public broadcasts are untrusted wake-ups, never a source of customer data. */
+/** Session-authenticated polling: public broadcasts can disclose cross-business activity timing.
+ * Each refresh passes through API authorization and PostgreSQL RLS. No public channel subscriptions. */
 export function useRealtimeChannel(channelName: string, onEvent: (event: RealtimeEvent) => void) {
   const handleEvent = useEffectEvent((event: RealtimeEvent) => onEvent(event));
   useEffect(() => {
@@ -29,20 +29,12 @@ export function useRealtimeChannel(channelName: string, onEvent: (event: Realtim
       } catch { /* Retry on the next wake-up or polling tick. */ }
       finally { running = false; }
     }
-    let removeChannel: (() => void) | undefined;
-    try {
-      const client = createSupabaseBrowserClient();
-      const channel = client.channel(channelName);
-      channel.on("broadcast", { event: "invalidate" }, () => { void refresh(); });
-      channel.subscribe();
-      removeChannel = () => { void client.removeChannel(channel); };
-    } catch { /* The authenticated polling transport also works without Supabase. */ }
     const timer = setInterval(() => { void refresh(); }, 5000);
     document.addEventListener("visibilitychange", refresh);
     void refresh();
     return () => {
       disposed = true; controller.abort(); clearInterval(timer);
-      document.removeEventListener("visibilitychange", refresh); removeChannel?.();
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [channelName]);
 }

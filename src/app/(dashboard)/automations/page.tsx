@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { templateParameterKeys } from "@/lib/campaigns";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
@@ -12,7 +13,7 @@ import { RuleList } from "@/components/automations/rule-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 
-export default async function AutomationsPage() {
+export default organizationRequest(async function AutomationsPage() {
   if (!hasRole(await auth(), ROLES_ADMIN_MANAGER)) return <AccessDenied />;
   const [rules, agents, cannedReplies, templates] = await Promise.all([
     listRules(),
@@ -43,4 +44,4 @@ export default async function AutomationsPage() {
       )}
     </div>
   );
-}
+});

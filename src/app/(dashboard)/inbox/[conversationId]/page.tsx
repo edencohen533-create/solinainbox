@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { InternalNotes } from "@/components/inbox/internal-notes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,7 +13,7 @@ import type { MessageItem } from "@/types/domain";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-export default async function ConversationPage({
+export default organizationRequest(async function ConversationPage({
   params,
 }: {
   params: Promise<{ conversationId: string }>;
@@ -39,7 +40,6 @@ export default async function ConversationPage({
     sentByUser: message.sentByUser ? { id: message.sentByUser.id, name: message.sentByUser.name } : null,
   }));
 
-  // eslint-disable-next-line react-hooks/purity -- Server Component computed once per request, not a memoized render.
   const now = Date.now();
   const composerDisabled =
     !conversation.lastInboundAt || now - conversation.lastInboundAt.getTime() > TWENTY_FOUR_HOURS_MS;
@@ -82,4 +82,4 @@ export default async function ConversationPage({
       </div>
     </div>
   );
-}
+});

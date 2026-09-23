@@ -103,7 +103,7 @@ async function seedTags() {
   const tags = [];
   for (const name of TAG_NAMES) {
     const tag = await prisma.tag.upsert({
-      where: { name },
+      where: { organizationId_name: { organizationId: "legacy", name } },
       update: {},
       create: { name, color: faker.color.rgb() },
     });
@@ -115,7 +115,7 @@ async function seedTags() {
 async function seedTemplates() {
   for (const template of TEMPLATE_SEEDS) {
     await prisma.template.upsert({
-      where: { name_language: { name: template.name, language: "he" } },
+      where: { organizationId_name_language: { organizationId: "legacy", name: template.name, language: "he" } },
       update: {
         category: template.category,
         body: template.body,
@@ -135,7 +135,7 @@ async function seedTemplates() {
 async function seedCannedReplies(adminUserId: string) {
   for (const reply of CANNED_REPLIES) {
     await prisma.cannedReply.upsert({
-      where: { shortcut: reply.shortcut },
+      where: { organizationId_shortcut: { organizationId: "legacy", shortcut: reply.shortcut } },
       update: { title: reply.title, body: reply.body },
       create: {
         title: reply.title,
@@ -174,7 +174,7 @@ async function seedContacts(tags: { id: string }[]) {
     const contact = await withRetry(
       () =>
         prisma.contact.upsert({
-          where: { phone },
+          where: { organizationId_phone: { organizationId: "legacy", phone } },
           update: {},
           create: {
             name,
@@ -430,6 +430,7 @@ async function seedAutomations(agents: { id: string; email: string }[], manager:
 }
 
 async function main() {
+  await prisma.organization.upsert({ where: { id: "legacy" }, update: {}, create: { id: "legacy", name: "Solina" } });
   faker.seed(42);
 
   const users = await seedUsers();

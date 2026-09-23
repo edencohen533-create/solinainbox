@@ -1,10 +1,11 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildConversationScope } from "@/server/services/conversation-service";
 import { getActiveProvider } from "@/server/providers/provider-registry";
 import { MAX_DOWNLOAD_BYTES, mediaType } from "@/lib/media";
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -34,4 +35,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     for (const key of ["content-length", "content-range", "accept-ranges"]) { const value = source.headers.get(key); if (value) headers.set(key, value); }
     return new Response(limited, { status: source.status === 206 ? 206 : 200, headers });
   } catch { return Response.json({ error: "הקובץ אינו זמין כרגע או חורג ממגבלת 20MB" }, { status: 502 }); }
-}
+});

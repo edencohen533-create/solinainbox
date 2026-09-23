@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildConversationScope } from "@/server/services/conversation-service";
@@ -9,7 +10,7 @@ import { writeAuditLog } from "@/lib/audit";
 
 const tagSchema = z.object({ tagId: z.string() });
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,9 +43,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   await evaluateTrigger(AutomationTrigger.TAG_ADDED, { conversationId, tagId });
 
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -61,4 +62,4 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
   await prisma.conversationTag.deleteMany({ where: { conversationId, tagId: parsed.data.tagId } });
   return NextResponse.json({ ok: true });
-}
+});

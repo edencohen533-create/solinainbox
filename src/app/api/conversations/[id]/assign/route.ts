@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Role } from "@prisma/client";
@@ -7,7 +8,7 @@ import { buildConversationScope, assignConversation } from "@/server/services/co
 
 const assignSchema = z.object({ agentId: z.string().nullable() });
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,4 +34,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const conversation = await assignConversation(id, agentId, session.user.id, buildConversationScope(session));
   if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ conversation });
-}
+});

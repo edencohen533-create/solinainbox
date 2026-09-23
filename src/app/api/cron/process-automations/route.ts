@@ -1,3 +1,4 @@
+import { processOrganizations } from "@/jobs/organization-runner";
 import { NextResponse } from "next/server";
 import { processDueAutomationRuns } from "@/jobs/automation-runner";
 
@@ -7,6 +8,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await processDueAutomationRuns();
+  const result = await processOrganizations("automation", processDueAutomationRuns);
   return NextResponse.json(result);
 }
+
+export const maxDuration = 60;

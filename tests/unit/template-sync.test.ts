@@ -26,7 +26,7 @@ describe("Meta template synchronization", () => {
     vi.stubGlobal("fetch", request);
     expect(await syncMetaTemplates()).toEqual({ synced: 2, sendable: 2, unsupported: 0 });
     expect(new URL(request.mock.calls[1][0]).hostname).toBe("graph.facebook.com");
-    expect(db.template.upsert.mock.calls[1][0].where).toEqual({ name_language: { name: "welcome", language: "en" } });
+    expect(db.template.upsert.mock.calls[1][0].where).toEqual({ organizationId_name_language: { organizationId: "legacy", name: "welcome", language: "en" } });
   });
   it("does not save a partial sync when pagination fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ data: [base], paging: { next: "next", cursors: { after: "cursor" } } }) }).mockResolvedValueOnce({ ok: false }));

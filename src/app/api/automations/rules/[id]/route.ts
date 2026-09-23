@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -6,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 const patchSchema = z.object({ isActive: z.boolean() });
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -20,4 +21,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const rule = await prisma.automationRule.update({ where: { id }, data: { isActive: parsed.data.isActive } });
   return NextResponse.json({ rule });
-}
+});

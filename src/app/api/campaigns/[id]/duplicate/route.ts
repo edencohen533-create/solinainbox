@@ -1,8 +1,9 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { prisma } from "@/lib/prisma";
 import { campaignActor } from "@/lib/campaign-auth";
 import { CampaignError, createCampaign } from "@/server/services/campaign-service";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = organizationRequest(async function(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await campaignActor();
   if (!actor) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const { id } = await params;
@@ -16,4 +17,4 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (error instanceof CampaignError) return Response.json({ error: error.message }, { status: 409 });
     throw error;
   }
-}
+});

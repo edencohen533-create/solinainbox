@@ -1,8 +1,9 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { prisma } from "@/lib/prisma";
 import { campaignActor } from "@/lib/campaign-auth";
 import { distributionListSchema } from "@/lib/campaigns";
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const { id } = await params;
   const parsed = distributionListSchema.safeParse(await request.json().catch(() => null));
@@ -13,4 +14,4 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     name: parsed.data.name, members: { deleteMany: {}, create: parsed.data.contactIds.map((contactId) => ({ contactId })) },
   } });
   return Response.json({ list });
-}
+});

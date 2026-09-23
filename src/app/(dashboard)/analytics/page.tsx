@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
 import { AccessDenied } from "@/components/shared/access-denied";
@@ -6,7 +7,7 @@ import { StatTile } from "@/components/analytics/stat-tile";
 import { AgentBarList } from "@/components/analytics/agent-bar-list";
 import { EmptyState } from "@/components/shared/empty-state";
 
-export default async function AnalyticsPage() {
+export default organizationRequest(async function AnalyticsPage() {
   const session = await auth();
 
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) {
@@ -47,4 +48,4 @@ export default async function AnalyticsPage() {
       </div>
     </div>
   );
-}
+});

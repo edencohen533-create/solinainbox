@@ -100,17 +100,19 @@ enum AutomationRunStatus {
 // ---------- Models ----------
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(AGENT)
-  teamId       String?
-  team         Team?    @relation(fields: [teamId], references: [id])
-  isActive     Boolean  @default(true)
-  avatarUrl    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "User_organization_fk")
+  organizationId String       @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  name           String
+  role           Role         @default(AGENT)
+  teamId         String?
+  team           Team?        @relation(fields: [teamId], references: [id])
+  isActive       Boolean      @default(true)
+  avatarUrl      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   campaigns             Campaign[]
   assignedConversations Conversation[]      @relation("AssignedAgent")
@@ -119,55 +121,66 @@ model User {
   auditLogs             AuditLog[]
   drafts                ConversationDraft[]
   cannedReplies         CannedReply[]       @relation("CreatedByUser")
+
+  @@index([organizationId])
 }
 
 model Team {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  members   User[]
+  organizationId String   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String   @id @default(cuid())
+  name           String
+  createdAt      DateTime @default(now())
+  members        User[]
+
+  @@index([organizationId])
 }
 
 model Contact {
-  isBlocked Boolean @default(false)
-  consentAt DateTime?
-  consentSource String?
-  consentEvidence String?
-  consentScope String?
-  lastMarketingAt DateTime?
-  id             String               @id @default(cuid())
-  name           String
-  phone          String               @unique
-  email          String?
-  tags           ContactTag[]
-  source         String?
-  consentStatus  ConsentStatus        @default(UNKNOWN)
-  listMemberships DistributionListMember[]
+  organizationId     String                   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  isBlocked          Boolean                  @default(false)
+  consentAt          DateTime?
+  consentSource      String?
+  consentEvidence    String?
+  consentScope       String?
+  lastMarketingAt    DateTime?
+  id                 String                   @id @default(cuid())
+  name               String
+  phone              String
+  email              String?
+  tags               ContactTag[]
+  source             String?
+  consentStatus      ConsentStatus            @default(UNKNOWN)
+  listMemberships    DistributionListMember[]
   campaignRecipients CampaignRecipient[]
-  customFields   ContactCustomField[]
-  notes          Note[]
-  conversations  Conversation[]
-  createdAt      DateTime             @default(now())
-  lastActivityAt DateTime?
-  updatedAt      DateTime             @updatedAt
+  customFields       ContactCustomField[]
+  notes              Note[]
+  conversations      Conversation[]
+  createdAt          DateTime                 @default(now())
+  lastActivityAt     DateTime?
+  updatedAt          DateTime                 @updatedAt
 
+  @@unique([organizationId, phone])
   @@index([phone])
   @@index([name])
+  @@index([organizationId])
 }
 
 model ContactCustomField {
-  id        String  @id @default(cuid())
-  contactId String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  key       String
-  value     String
+  organizationId String  @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String  @id @default(cuid())
+  contactId      String
+  contact        Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  key            String
+  value          String
 
   @@unique([contactId, key])
+  @@index([organizationId])
 }
 
 model Conversation {
-  sendLockToken String?
-  sendLockUntil DateTime?
+  organizationId  String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  sendLockToken   String?
+  sendLockUntil   DateTime?
   id              String              @id @default(cuid())
   contactId       String
   contact         Contact             @relation(fields: [contactId], references: [id])
@@ -191,77 +204,92 @@ model Conversation {
   @@index([status])
   @@index([assignedAgentId])
   @@index([lastMessageAt])
+  @@index([organizationId])
 }
 
 model Message {
-  requestKey String? @unique
+  organizationId       String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  requestKey           String?             @unique
   providerCredentialId String?
-  errorReason String?
-  acceptedAt DateTime?
-  sentAt DateTime?
-  failedAt DateTime?
-  id                String              @id @default(cuid())
-  conversationId    String
-  conversation      Conversation        @relation(fields: [conversationId], references: [id])
-  direction         MessageDirection
-  type              MessageType
-  body              String?
-  status            MessageStatus       @default(SENT)
-  sentByUserId      String?
-  sentByUser        User?               @relation("SentByUser", fields: [sentByUserId], references: [id])
-  attachments       MessageAttachment[]
-  templateId        String?
-  template          Template?           @relation(fields: [templateId], references: [id])
-  inboundKey        String?             @unique
-  providerMessageId String?
-  deliveredAt       DateTime?
-  readAt            DateTime?
-  createdAt         DateTime            @default(now())
+  errorReason          String?
+  acceptedAt           DateTime?
+  sentAt               DateTime?
+  failedAt             DateTime?
+  id                   String              @id @default(cuid())
+  conversationId       String
+  conversation         Conversation        @relation(fields: [conversationId], references: [id])
+  direction            MessageDirection
+  type                 MessageType
+  body                 String?
+  status               MessageStatus       @default(SENT)
+  sentByUserId         String?
+  sentByUser           User?               @relation("SentByUser", fields: [sentByUserId], references: [id])
+  attachments          MessageAttachment[]
+  templateId           String?
+  template             Template?           @relation(fields: [templateId], references: [id])
+  inboundKey           String?             @unique
+  providerMessageId    String?
+  deliveredAt          DateTime?
+  readAt               DateTime?
+  createdAt            DateTime            @default(now())
 
   @@index([conversationId, createdAt])
   @@index([providerMessageId])
+  @@index([organizationId])
 }
 
 model MessageAttachment {
-  id        String   @id @default(cuid())
-  messageId String
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  url       String
+  organizationId  String   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id              String   @id @default(cuid())
+  messageId       String
+  message         Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  url             String
   providerMediaId String?
-  mimeType  String
-  fileName  String?
-  sizeBytes Int?
-  createdAt DateTime @default(now())
+  mimeType        String
+  fileName        String?
+  sizeBytes       Int?
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId])
 }
 
 model Tag {
-  id            String            @id @default(cuid())
-  name          String            @unique
-  color         String            @default("#6366f1")
-  contacts      ContactTag[]
-  conversations ConversationTag[]
-  createdAt     DateTime          @default(now())
+  organizationId String            @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String            @id @default(cuid())
+  name           String
+  color          String            @default("#6366f1")
+  contacts       ContactTag[]
+  conversations  ConversationTag[]
+  createdAt      DateTime          @default(now())
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model ContactTag {
-  contactId String
-  tagId     String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  organizationId String  @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  contactId      String
+  tagId          String
+  contact        Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag            Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([contactId, tagId])
+  @@index([organizationId])
 }
 
 model ConversationTag {
+  organizationId String       @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   conversationId String
   tagId          String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([conversationId, tagId])
+  @@index([organizationId])
 }
 
 model Note {
+  organizationId   String        @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id               String        @id @default(cuid())
   conversationId   String?
   conversation     Conversation? @relation(fields: [conversationId], references: [id])
@@ -272,9 +300,12 @@ model Note {
   body             String
   mentionedUserIds String[]      @default([])
   createdAt        DateTime      @default(now())
+
+  @@index([organizationId])
 }
 
 model ConversationDraft {
+  organizationId String       @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -284,52 +315,63 @@ model ConversationDraft {
   updatedAt      DateTime     @updatedAt
 
   @@unique([conversationId, userId])
+  @@index([organizationId])
 }
 
 model CannedReply {
+  organizationId  String   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id              String   @id @default(cuid())
   title           String
   body            String
-  shortcut        String?  @unique
+  shortcut        String?
   createdByUserId String
   createdByUser   User     @relation("CreatedByUser", fields: [createdByUserId], references: [id])
   createdAt       DateTime @default(now())
+
+  @@unique([organizationId, shortcut])
+  @@index([organizationId])
 }
 
 model Template {
-  id        String           @id @default(cuid())
-  name      String
-  language  String           @default("he")
-  category  TemplateCategory @default(UTILITY)
-  providerTemplateId String? @unique
-  providerAccountId String?
-  syncError String?
-  body      String
-  variables String[]         @default([])
-  status    TemplateStatus   @default(DRAFT)
-  messages  Message[]
-  campaigns Campaign[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  organizationId     String           @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id                 String           @id @default(cuid())
+  name               String
+  language           String           @default("he")
+  category           TemplateCategory @default(UTILITY)
+  providerTemplateId String?          @unique
+  providerAccountId  String?
+  syncError          String?
+  body               String
+  variables          String[]         @default([])
+  status             TemplateStatus   @default(DRAFT)
+  messages           Message[]
+  campaigns          Campaign[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
-  @@unique([name, language])
+  @@unique([organizationId, name, language])
   @@index([providerAccountId])
+  @@index([organizationId])
 }
 
 model AutomationRule {
-  id            String               @id @default(cuid())
-  name          String
-  isActive      Boolean              @default(true)
-  trigger       AutomationTrigger
-  triggerConfig Json                 @default("{}")
-  actionType    AutomationActionType
-  actionConfig  Json                 @default("{}")
-  runs          AutomationRun[]
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  organizationId String               @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String               @id @default(cuid())
+  name           String
+  isActive       Boolean              @default(true)
+  trigger        AutomationTrigger
+  triggerConfig  Json                 @default("{}")
+  actionType     AutomationActionType
+  actionConfig   Json                 @default("{}")
+  runs           AutomationRun[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([organizationId])
 }
 
 model AutomationRun {
+  organizationId String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id             String              @id @default(cuid())
   ruleId         String
   rule           AutomationRule      @relation(fields: [ruleId], references: [id])
@@ -345,9 +387,11 @@ model AutomationRun {
   completedAt    DateTime?
 
   @@index([status, scheduledFor])
+  @@index([organizationId])
 }
 
 model AuditLog {
+  organizationId String        @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id             String        @id @default(cuid())
   actorUserId    String?
   actorUser      User?         @relation(fields: [actorUserId], references: [id])
@@ -360,20 +404,24 @@ model AuditLog {
   createdAt      DateTime      @default(now())
 
   @@index([entityType, entityId])
+  @@index([organizationId])
 }
 
 model ProviderCredential {
-  lastCheckedAt DateTime?
+  phoneNumberId       String?   @unique
+  organizationId      String    @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  lastCheckedAt       DateTime?
   lastConnectionError String?
-  sendingBlocked Boolean @default(false)
-  id        String   @id @default(cuid())
-  provider  String
-  isActive  Boolean  @default(false)
-  config    Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+  sendingBlocked      Boolean   @default(false)
+  id                  String    @id @default(cuid())
+  provider            String
+  isActive            Boolean   @default(false)
+  config              Json      @default("{}")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
+  @@index([organizationId])
+}
 
 enum CampaignStatus {
   DRAFT
@@ -394,61 +442,81 @@ enum RecipientStatus {
 }
 
 model DistributionList {
-  id        String @id @default(cuid())
-  name      String
-  members   DistributionListMember[]
-  campaigns Campaign[]
-  createdAt DateTime @default(now())
+  organizationId String                   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String                   @id @default(cuid())
+  name           String
+  members        DistributionListMember[]
+  campaigns      Campaign[]
+  createdAt      DateTime                 @default(now())
+
+  @@index([organizationId])
 }
 
 model DistributionListMember {
-  listId    String
-  contactId String
-  list      DistributionList @relation(fields: [listId], references: [id], onDelete: Cascade)
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organizationId String           @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  listId         String
+  contactId      String
+  list           DistributionList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact        Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@id([listId, contactId])
   @@index([contactId])
+  @@index([organizationId])
 }
 
 model Campaign {
-  senderSnapshot String?
+  organizationId   String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  senderSnapshot   String?
   templateSnapshot String?
-  id          String @id @default(cuid())
-  name        String
-  listId      String
-  list        DistributionList @relation(fields: [listId], references: [id])
-  templateId  String
-  template    Template @relation(fields: [templateId], references: [id])
-  variables   Json @default("{}")
-  createdById String
-  createdBy   User @relation(fields: [createdById], references: [id])
-  status      CampaignStatus @default(DRAFT)
-  scheduledAt DateTime?
-  recipients  CampaignRecipient[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String              @id @default(cuid())
+  name             String
+  listId           String
+  list             DistributionList    @relation(fields: [listId], references: [id])
+  templateId       String
+  template         Template            @relation(fields: [templateId], references: [id])
+  variables        Json                @default("{}")
+  createdById      String
+  createdBy        User                @relation(fields: [createdById], references: [id])
+  status           CampaignStatus      @default(DRAFT)
+  scheduledAt      DateTime?
+  recipients       CampaignRecipient[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([status, scheduledAt])
   @@index([listId])
   @@index([templateId])
   @@index([createdById])
+  @@index([organizationId])
 }
 
 model CampaignRecipient {
-  id          String @id @default(cuid())
-  campaignId  String
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contactId   String
-  contact     Contact @relation(fields: [contactId], references: [id])
-  status      RecipientStatus @default(QUEUED)
-  messageId   String? @unique
-  error       String?
-  claimedAt   DateTime?
-  completedAt DateTime?
+  organizationId String          @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String          @id @default(cuid())
+  campaignId     String
+  campaign       Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId      String
+  contact        Contact         @relation(fields: [contactId], references: [id])
+  status         RecipientStatus @default(QUEUED)
+  messageId      String?         @unique
+  error          String?
+  claimedAt      DateTime?
+  completedAt    DateTime?
 
   @@unique([campaignId, contactId])
   @@index([campaignId, status])
   @@index([status, claimedAt])
   @@index([contactId])
+  @@index([organizationId])
+}
+
+// Workspace membership is server-managed; clients cannot choose their tenant.
+model Organization {
+  users                User[]
+  id                   String    @id @default(cuid())
+  name                 String
+  isActive             Boolean   @default(true)
+  lastCampaignScanAt   DateTime?
+  lastAutomationScanAt DateTime?
+  createdAt            DateTime  @default(now())
 }

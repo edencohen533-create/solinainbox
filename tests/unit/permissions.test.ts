@@ -6,7 +6,7 @@ import { buildConversationScope } from "@/server/services/conversation-service";
 
 function makeSession(role: Role, id = "user-1"): Session {
   return {
-    user: { id, role, teamId: null, email: `${id}@solina.test`, name: id },
+    user: { id, role, teamId: null, organizationId: "legacy", email: `${id}@solina.test`, name: id },
     expires: new Date(Date.now() + 86_400_000).toISOString(),
   };
 }

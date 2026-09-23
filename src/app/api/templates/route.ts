@@ -1,11 +1,12 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { listSendableTemplates } from "@/server/services/template-service";
-export async function GET() {
+export const GET = organizationRequest(async function() {
   if (!(await auth())?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   return Response.json({ templates: await listSendableTemplates() });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = organizationRequest(async function(request: Request) {
   const { campaignActor } = await import("@/lib/campaign-auth");
   if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const { submitTemplateSchema } = await import("@/lib/validation/template");
@@ -14,6 +15,6 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "תבנית לא תקינה" }, { status: 400 });
   try { return Response.json({ template: await submitMetaTemplate(parsed.data) }, { status: 201 }); }
   catch (error) { return Response.json({ error: error instanceof TemplateSubmissionError ? error.message : "הגשת התבנית נכשלה" }, { status: 502 }); }
-}
+});
 
 export const maxDuration = 60;

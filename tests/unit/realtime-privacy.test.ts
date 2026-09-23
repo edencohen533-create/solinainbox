@@ -7,7 +7,7 @@ describe("public realtime privacy", () => {
   it("never broadcasts customer messages or user data on public channels", async () => {
     channel.mockReturnValue({ send }); resetRealtimePublisher();
     await publishNewMessage({ type: "new_message", conversationId: "c", message: { id: "m", body: "private content", direction: "INBOUND", status: "SENT", type: "TEXT", createdAt: new Date().toISOString() } });
-    expect(send).toHaveBeenCalledTimes(2);
-    for (const [payload] of send.mock.calls) expect(payload).toEqual({ type: "broadcast", event: "invalidate", payload: {} });
+    expect(channel).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 });

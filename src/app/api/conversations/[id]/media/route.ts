@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildConversationScope } from "@/server/services/conversation-service";
@@ -5,7 +6,7 @@ import { createOutboundMessage, MessagePolicyError } from "@/server/services/mes
 import { MAX_UPLOAD_BYTES, mediaType } from "@/lib/media";
 
 export const maxDuration = 60;
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -29,4 +30,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (error) {
     return Response.json({ error: error instanceof MessagePolicyError ? error.message : "לא ניתן לאמת את השליחה. יש לבדוק את השיחה לפני ניסיון נוסף" }, { status: error instanceof MessagePolicyError ? 409 : 502 });
   }
-}
+});

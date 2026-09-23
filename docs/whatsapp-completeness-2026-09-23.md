@@ -64,7 +64,7 @@ Next.js 16 / React → NextAuth והרשאות API → שירותי שרת → P
 
 ## קבצים ומיגרציה
 
-- `supabase/migrations/20260923040528_whatsapp_send_safety.sql` נוצרה ב־Supabase CLI. Additive: שדות הסכמה/חסימה/תדירות, lease, requestKey unique, זהות ספק וזמני הודעה, snapshots ו־health. אין טבלאות public חדשות ואין שינוי grants. קמפיינים פעילים ישנים מושהים כדי לא לשלוח מחיבור לא מזוהה. להחיל לפני פריסת הקוד.
+- `supabase/migrations/20260923043023_whatsapp_send_safety.sql` נוצרה ב־Supabase CLI. Additive: שדות הסכמה/חסימה/תדירות, lease, requestKey unique, זהות ספק וזמני הודעה, snapshots ו־health. אין טבלאות public חדשות ואין שינוי grants. קמפיינים פעילים ישנים מושהים כדי לא לשלוח מחיבור לא מזוהה. להחיל לפני פריסת הקוד.
 - `prisma/schema.prisma` תואם למיגרציה; `prisma generate` בוצע.
 - נוספו `message-policy.ts`, `send-guard.ts`, `campaign-snapshot.ts` ונתיב `/api/conversations/[id]/draft`.
 - הורחבו השירותים, workers, עורך ההסכמה, campaign dashboard, composer, ספק Meta ודוחות קיימים. אין מודול WhatsApp כפול.
