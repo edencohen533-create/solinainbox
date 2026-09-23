@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -43,12 +44,13 @@ export default async function ConversationPage({
     !conversation.lastInboundAt || now - conversation.lastInboundAt.getTime() > TWENTY_FOUR_HOURS_MS;
 
   const agents = await prisma.user.findMany({
-    where: { role: { in: [Role.AGENT, Role.MANAGER] }, isActive: true },
+    where: { isActive: true, ...(session.user.role === Role.AGENT ? { id: session.user.id } : {}) },
     select: { id: true, name: true },
   });
 
   return (
     <div className="flex h-full flex-col">
+      <Link href="/inbox" className="border-b p-2 text-sm underline md:hidden">חזרה לרשימת השיחות</Link>
       <ConversationActions
         conversationId={conversation.id}
         status={conversation.status}

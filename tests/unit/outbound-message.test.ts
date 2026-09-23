@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { db, provider } = vi.hoisted(() => ({
   db: {
     conversation: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
-    message: { create: vi.fn(), update: vi.fn() },
+    message: { create: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     template: { findUnique: vi.fn() },
     campaignRecipient: { update: vi.fn() },
-  }, provider: { sendMessage: vi.fn(), sendTemplate: vi.fn() },
+  }, provider: { sendMessage: vi.fn(), sendTemplate: vi.fn(), requiresVerifiedInbound: false },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/server/providers/provider-registry", () => ({ getActiveProvider: async () => provider }));
@@ -15,7 +15,7 @@ vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn() }));
 import { createOutboundMessage } from "@/server/services/message-service";
 const input = { conversationId: "c", body: "hello", sentByUserId: "u" };
 beforeEach(() => {
-  vi.resetAllMocks();
+  vi.resetAllMocks(); provider.requiresVerifiedInbound = false;
   db.conversation.findUniqueOrThrow.mockResolvedValue({ id: "c", lastInboundAt: new Date(), contact: { phone: "+972501234567", consentStatus: "OPTED_IN" } });
   db.message.create.mockResolvedValue({ id: "m" });
   db.message.update.mockResolvedValue({ id: "m", status: "SENT", createdAt: new Date() });
@@ -49,4 +49,11 @@ describe("outbound message policies", () => {
     expect(db.message.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "TEMPLATE", body: "שלום דנה", status: "QUEUED" }) });
     expect(provider.sendTemplate).toHaveBeenCalledWith(expect.objectContaining({ templateVariables: { "1": "דנה" } }));
   });
+});
+
+it("never treats historical demo messages as a real Meta reply window", async () => {
+  provider.requiresVerifiedInbound = true;
+  db.message.findFirst.mockResolvedValue(null);
+  await expect(createOutboundMessage(input)).rejects.toThrow("הודעת לקוח אמיתית");
+  expect(provider.sendMessage).not.toHaveBeenCalled(); expect(db.message.create).not.toHaveBeenCalled();
 });

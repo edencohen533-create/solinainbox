@@ -47,10 +47,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id as string;
         token.role = user.role;
         token.teamId = user.teamId;
+        token.authenticatedAt = Date.now();
       }
       if (token.id) {
-        const current = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, teamId: true, isActive: true } });
+        const current = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, teamId: true, isActive: true, updatedAt: true } });
         if (!current?.isActive) return null;
+        const authenticatedAt = typeof token.authenticatedAt === "number" ? token.authenticatedAt : (token.iat ?? 0) * 1000;
+        if (!user && current.updatedAt.getTime() > authenticatedAt) return null;
         token.role = current.role;
         token.teamId = current.teamId;
       }

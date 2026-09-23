@@ -1,3 +1,6 @@
+import { auth } from "@/lib/auth";
+import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import { listRuns } from "@/server/services/automation-service";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function AutomationHistoryPage() {
+  if (!hasRole(await auth(), ROLES_ADMIN_MANAGER)) return <AccessDenied />;
   const runs = await listRuns();
 
   if (runs.length === 0) {

@@ -47,6 +47,7 @@ const META_STATUS_TO_MESSAGE_STATUS: Record<string, MessageStatus> = {
  * Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
  */
 export class MetaWhatsAppProvider implements WhatsAppProvider {
+  readonly requiresVerifiedInbound = true;
   constructor(private readonly config: MetaWhatsAppConfig) {}
 
   private get baseUrl(): string {
@@ -66,6 +67,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
+      redirect: "error",
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, data };
@@ -97,7 +99,8 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     if (!ok) {
       return { providerMessageId: "", status: "FAILED", error: data?.error?.message ?? "Meta API error" };
     }
-    return { providerMessageId: data?.messages?.[0]?.id ?? "", status: "SENT" };
+    if (typeof data?.messages?.[0]?.id !== "string" || !data.messages[0].id) throw new Error("Meta accepted request without a message ID; outcome unknown");
+    return { providerMessageId: data.messages[0].id, status: "SENT" };
   }
 
   async sendTemplate(payload: OutboundMessagePayload): Promise<SendResult> {
@@ -131,7 +134,8 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     if (!ok) {
       return { providerMessageId: "", status: "FAILED", error: data?.error?.message ?? "Meta API error" };
     }
-    return { providerMessageId: data?.messages?.[0]?.id ?? "", status: "SENT" };
+    if (typeof data?.messages?.[0]?.id !== "string" || !data.messages[0].id) throw new Error("Meta accepted request without a message ID; outcome unknown");
+    return { providerMessageId: data.messages[0].id, status: "SENT" };
   }
 
   async uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string; mediaId?: string }> {

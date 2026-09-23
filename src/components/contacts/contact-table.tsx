@@ -15,6 +15,7 @@ interface ContactRow {
   phone: string;
   email: string | null;
   consentStatus: string;
+  conversations?: { assignedAgent: { name: string } | null }[];
   tags: { tag: { id: string; name: string } }[];
 }
 
@@ -60,7 +61,7 @@ export function ContactTable({ initialContacts }: { initialContacts: ContactRow[
                 <TableHead>טלפון</TableHead>
                 <TableHead>אימייל</TableHead>
                 <TableHead>תגיות</TableHead>
-                <TableHead>הסכמה</TableHead>
+                <TableHead>נציג מטפל</TableHead><TableHead>הסכמה</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -86,6 +87,7 @@ export function ContactTable({ initialContacts }: { initialContacts: ContactRow[
                       ))}
                     </div>
                   </TableCell>
+                  <TableCell>{contact.conversations?.[0]?.assignedAgent?.name ?? "לא משויך"}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{CONSENT_LABELS[contact.consentStatus] ?? contact.consentStatus}</Badge>
                   </TableCell>

@@ -27,6 +27,7 @@ export interface MessageStatusResult {
  * implementation — so swapping providers touches no calling code.
  */
 export interface WhatsAppProvider {
+  readonly requiresVerifiedInbound?: boolean;
   sendMessage(payload: OutboundMessagePayload): Promise<SendResult>;
   sendTemplate(payload: OutboundMessagePayload): Promise<SendResult>;
   uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string; mediaId?: string }>;

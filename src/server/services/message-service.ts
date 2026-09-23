@@ -43,8 +43,11 @@ export async function createInboundMessage(input: CreateInboundMessageInput) {
       where: { contactId: input.contactId, status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] } },
       orderBy: { createdAt: "desc" },
     });
+    const previous = !openConversation ? await tx.conversation.findFirst({
+      where: { contactId: input.contactId, assignedAgent: { isActive: true } }, orderBy: { createdAt: "desc" },
+    }) : null;
     const conversation = openConversation ?? await tx.conversation.create({ data: {
-      contactId: input.contactId, status: ConversationStatus.OPEN, source: input.source ?? ConversationSource.MOCK,
+      contactId: input.contactId, assignedAgentId: previous?.assignedAgentId ?? null, status: ConversationStatus.OPEN, source: input.source ?? ConversationSource.MOCK,
     } });
     const receivedAt = input.receivedAt ?? new Date();
     const attachmentId = randomUUID();
@@ -122,10 +125,17 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
     try { validateTemplateVariables(template.body, input.templateVariables ?? {}); }
     catch (error) { throw new MessagePolicyError((error as Error).message); }
     body = renderTemplate(template.body, input.templateVariables ?? {});
-  } else if (!conversation.lastInboundAt || now.getTime() - conversation.lastInboundAt.getTime() > 86400000) {
+  } else if (!conversation.lastInboundAt || now.getTime() - conversation.lastInboundAt.getTime() >= 86400000) {
     throw new MessagePolicyError("חלון המענה הסתיים. יש לשלוח תבנית מאושרת");
   }
   const provider = await getActiveProvider();
+  if (provider.requiresVerifiedInbound && !input.templateId) {
+    const verifiedInbound = await prisma.message.findFirst({ where: {
+      conversationId: input.conversationId, direction: "INBOUND", inboundKey: { not: null },
+      createdAt: { gt: new Date(now.getTime() - 86400000) },
+    }, select: { id: true } });
+    if (!verifiedInbound) throw new MessagePolicyError("נדרשת הודעת לקוח אמיתית מ־Meta ב־24 השעות האחרונות, או תבנית מאושרת");
+  }
   const messageType = input.templateId ? "TEMPLATE" : (input.type ?? MessageType.TEXT);
   const uploaded = input.media ? await provider.uploadMedia(input.media.file, input.media.mimeType) : undefined;
   const outboundPayload: OutboundMessagePayload = {

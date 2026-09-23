@@ -102,6 +102,13 @@ export function NewContactDialog() {
                 </FormItem>
               )}
             />
+            <label className="block space-y-1 text-sm">הסכמה לדיוור
+              <select aria-label="הסכמה לדיוור" className="w-full rounded border p-2" {...form.register("consentStatus")}>
+                <option value="UNKNOWN">לא ידוע — לא יישלחו קמפיינים</option>
+                <option value="OPTED_IN">קיימת הסכמה לקבלת דיוור</option>
+                <option value="OPTED_OUT">סירב לקבל הודעות</option>
+              </select>
+            </label>
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "שומר..." : "שמור"}

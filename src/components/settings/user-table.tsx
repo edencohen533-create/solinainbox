@@ -1,5 +1,6 @@
 "use client";
 
+import { ResetPasswordDialog } from "./reset-password-dialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,7 +22,7 @@ const ROLE_LABELS: Record<string, string> = {
   AGENT: "נציג",
 };
 
-export function UserTable({ users: initialUsers }: { users: UserRow[] }) {
+export function UserTable({ users: initialUsers, canManage }: { users: UserRow[]; canManage: boolean }) {
   const [users, setUsers] = useState(initialUsers);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -52,7 +53,7 @@ export function UserTable({ users: initialUsers }: { users: UserRow[] }) {
             <TableHead>שם</TableHead>
             <TableHead>אימייל</TableHead>
             <TableHead>תפקיד</TableHead>
-            <TableHead>פעיל</TableHead>
+            <TableHead>פעיל</TableHead><TableHead>סיסמה</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -68,10 +69,11 @@ export function UserTable({ users: initialUsers }: { users: UserRow[] }) {
               <TableCell>
                 <Switch
                   checked={user.isActive}
-                  disabled={pending === user.id}
+                  disabled={!canManage || pending === user.id}
                   onCheckedChange={(checked) => toggleActive(user.id, checked)}
                 />
               </TableCell>
+              <TableCell>{canManage && <ResetPasswordDialog userId={user.id} name={user.name} />}</TableCell>
             </TableRow>
           ))}
         </TableBody>

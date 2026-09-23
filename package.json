@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "test:qa": "vitest run --config vitest.qa.config.mts",
+    "test:browser": "node scripts/qa-browser.cjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -51,10 +53,16 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "jsdom": "^29.1.1",
+    "playwright": "1.63.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^4.1.11",
     "vitest-mock-extended": "^5.1.1"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    }
   }
 }

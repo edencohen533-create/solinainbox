@@ -1,3 +1,4 @@
+import { NewTemplateDialog } from "@/components/templates/new-template-dialog";
 import { listTemplates } from "@/server/services/template-service";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,7 @@ export default async function TemplatesPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between gap-3"><h1 className="text-lg font-semibold">תבניות הודעה</h1>{actor && <SyncTemplatesButton />}</div>
+      <div className="mb-4 flex items-center justify-between gap-3"><h1 className="text-lg font-semibold">תבניות הודעה</h1>{actor && <div className="flex gap-2"><NewTemplateDialog /><SyncTemplatesButton /></div>}</div>
       {!templates.length && <p className="mb-4 text-muted-foreground">אין תבניות עדיין. חבר את חשבון Meta וסנכרן את התבניות המאושרות.</p>}
       <div className="overflow-auto rounded-md border">
         <Table>

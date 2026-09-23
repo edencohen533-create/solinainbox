@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const contact = await getContact(id);
+  const contact = await getContact(id, session);
   if (!contact) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -24,13 +24,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const parsed = contactSchema.partial().safeParse(await request.json());
+  const parsed = contactSchema.partial().safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
   try {
-    const contact = await updateContact(id, parsed.data, session.user.id);
+    const contact = await updateContact(id, parsed.data, session.user.id, session);
     return NextResponse.json({ contact });
   } catch (error) {
     if (error instanceof DuplicateContactError) {
@@ -39,6 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (error instanceof InvalidPhoneError) {
       return NextResponse.json({ error: "מספר טלפון לא תקין" }, { status: 400 });
     }
+    if ((error as { code?: string }).code === "P2025") return NextResponse.json({ error: "Not found" }, { status: 404 });
     throw error;
   }
 }

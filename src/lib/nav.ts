@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/contacts", label: "אנשי קשר" },
   { href: "/campaigns", label: "קמפיינים ורשימות תפוצה", roles: [Role.ADMIN, Role.MANAGER] },
   { href: "/templates", label: "תבניות" },
-  { href: "/automations", label: "אוטומציות" },
+  { href: "/automations", label: "אוטומציות", roles: [Role.ADMIN, Role.MANAGER] },
   { href: "/analytics", label: "אנליטיקה", roles: [Role.ADMIN, Role.MANAGER] },
   { href: "/settings", label: "הגדרות" },
 ];

@@ -123,6 +123,7 @@ export async function executeAction(
     case AutomationActionType.ASSIGN_AGENT: {
       const agentId = config.agentId as string | undefined;
       if (!agentId) return { skipped: "no agentId configured" };
+      if (!await prisma.user.findFirst({ where: { id: agentId, isActive: true }, select: { id: true } })) return { skipped: "agent unavailable" };
       await prisma.conversation.update({ where: { id: conversationId }, data: { assignedAgentId: agentId } });
       await writeAuditLog({
         action: "automation.assigned",

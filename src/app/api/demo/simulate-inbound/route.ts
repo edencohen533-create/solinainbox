@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
@@ -11,7 +12,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  if (await prisma.providerCredential.findFirst({ where: { isActive: true, provider: { not: "mock" } }, select: { id: true } })) {
+    return NextResponse.json({ error: "סימולציה זמינה במצב דמו בלבד" }, { status: 409 });
+  }
+  const body = await request.json().catch(() => null);
   const parsed = simulateInboundSchema.safeParse(body);
 
   if (!parsed.success) {

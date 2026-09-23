@@ -82,17 +82,15 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) 
   );
 }
 
-function FormControl({ ...props }: React.ComponentProps<"div">) {
+function FormControl({ children, ...props }: React.ComponentProps<"div">) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
-
-  return (
-    <div
-      id={formItemId}
-      aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
-      aria-invalid={!!error}
-      {...props}
-    />
-  );
+  const child = React.Children.only(children) as React.ReactElement<React.HTMLAttributes<HTMLElement>>;
+  return React.cloneElement(child, {
+    ...props,
+    id: formItemId,
+    "aria-describedby": error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId,
+    "aria-invalid": !!error,
+  });
 }
 
 function FormDescription({ className, ...props }: React.ComponentProps<"p">) {

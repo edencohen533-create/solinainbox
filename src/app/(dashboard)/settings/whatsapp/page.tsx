@@ -19,7 +19,7 @@ export default async function WhatsAppSettingsPage() {
     <div className="p-6">
       <h1 className="mb-1 text-lg font-semibold">חיבור וואטסאפ</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        כרגע המערכת עובדת מול ספק מדומה. חבר כאן את Meta WhatsApp Cloud API כדי לשלוח ולקבל הודעות אמיתיות.
+        {summary.provider === "mock" ? "כרגע המערכת במצב דמו. חבר חשבון Meta כדי לשלוח ולקבל הודעות אמיתיות." : "חיבור Meta מוגדר. ניתן לבדוק את הגישה ולעדכן את פרטי החיבור כאן."}
       </p>
       <WhatsAppProviderForm initialSummary={summary} webhookUrl={webhookUrl} />
     </div>

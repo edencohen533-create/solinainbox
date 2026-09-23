@@ -103,3 +103,28 @@ export async function assignConversation(conversationId: string, agentId: string
 
   return conversation;
 }
+
+export class ConversationStartError extends Error {}
+
+/** Locks the contact so manual starts and inbound webhooks cannot create duplicate open threads. */
+export async function startConversation(session: Session, contactId: string, agentId?: string | null) {
+  const assignee = agentId === undefined ? session.user.id : agentId;
+  if (session.user.role === Role.AGENT && assignee !== session.user.id) throw new ConversationStartError("נציג יכול לשייך שיחה חדשה לעצמו בלבד");
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Contact" WHERE id = ${contactId} FOR UPDATE`;
+    const contact = await tx.contact.findUnique({ where: { id: contactId } });
+    if (!contact) throw new ConversationStartError("איש הקשר לא נמצא");
+    if (contact.consentStatus === "OPTED_OUT") throw new ConversationStartError("איש הקשר סירב לקבל הודעות");
+    const previous = await tx.conversation.findFirst({ where: { contactId }, orderBy: { createdAt: "desc" } });
+    if (session.user.role === Role.AGENT && previous?.assignedAgentId && previous.assignedAgentId !== session.user.id) throw new ConversationStartError("הליד משויך לנציג אחר");
+    if (assignee && !await tx.user.findFirst({ where: { id: assignee, isActive: true }, select: { id: true } })) throw new ConversationStartError("הנציג אינו פעיל");
+    const existing = await tx.conversation.findFirst({ where: { contactId, status: { in: ["OPEN", "PENDING"] } }, orderBy: { createdAt: "desc" } });
+    if (existing) {
+      if (session.user.role === Role.AGENT && existing.assignedAgentId && existing.assignedAgentId !== session.user.id) throw new ConversationStartError("השיחה משויכת לנציג אחר");
+      return existing;
+    }
+    const conversation = await tx.conversation.create({ data: { contactId, assignedAgentId: assignee, source: "MANUAL", lastMessageAt: new Date() } });
+    await tx.auditLog.create({ data: { actorUserId: session.user.id, action: "conversation.started", entityType: "Conversation", entityId: conversation.id, conversationId: conversation.id, metadata: { assignedAgentId: assignee } } });
+    return conversation;
+  });
+}

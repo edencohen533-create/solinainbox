@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-const { db } = vi.hoisted(() => ({ db: { user: { findMany: vi.fn() }, contact: { findUnique: vi.fn() }, conversation: { findMany: vi.fn(), findFirst: vi.fn() } } }));
+const { db } = vi.hoisted(() => ({ db: { user: { findMany: vi.fn() }, contact: { findFirst: vi.fn() }, conversation: { findMany: vi.fn(), findFirst: vi.fn() } } }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 import { listUsers } from "@/server/services/user-service";
 import { getContact } from "@/server/services/contact-service";
@@ -13,8 +13,8 @@ describe("public user data projections", () => {
     expect(select.passwordHash).toBeUndefined(); expect(select.name).toBe(true);
   });
   it("only includes IDs and names for note authors and message senders", async () => {
-    await getContact("c"); await listConversations(session); await getConversationForUser(session, "c");
-    expect(db.contact.findUnique.mock.calls[0][0].include.notes.include.author.select).toEqual({ id: true, name: true });
+    await getContact("c", session); await listConversations(session); await getConversationForUser(session, "c");
+    expect(db.contact.findFirst.mock.calls[0][0].include.notes.include.author.select).toEqual({ id: true, name: true });
     expect(db.conversation.findMany.mock.calls[0][0].include.assignedAgent.select).toEqual({ id: true, name: true });
     expect(db.conversation.findFirst.mock.calls[0][0].include.messages.include.sentByUser.select).toEqual({ id: true, name: true });
   });

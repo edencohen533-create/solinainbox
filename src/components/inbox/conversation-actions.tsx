@@ -96,7 +96,7 @@ export function ConversationActions({
   return (
     <div className="flex items-center gap-2 border-b p-2">
       <Select value={status} onValueChange={updateStatus} disabled={isPending}>
-        <SelectTrigger className="h-8 w-28 text-sm">
+        <SelectTrigger aria-label="סטטוס שיחה" className="h-8 w-28 text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -109,7 +109,7 @@ export function ConversationActions({
       </Select>
 
       <Select value={assignedAgentId ?? "unassigned"} onValueChange={updateAssignment} disabled={isPending}>
-        <SelectTrigger className="h-8 w-36 text-sm">
+        <SelectTrigger aria-label="נציג מטפל" className="h-8 w-36 text-sm">
           <SelectValue placeholder="לא משויך" />
         </SelectTrigger>
         <SelectContent>

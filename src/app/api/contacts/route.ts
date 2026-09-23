@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const search = url.searchParams.get("search") ?? undefined;
-  const contacts = await listContacts(search);
+  const contacts = await listContacts(session, search);
   return NextResponse.json({ contacts });
 }
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = contactSchema.safeParse(await request.json());
+  const parsed = contactSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
