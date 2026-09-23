@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { ContactDetailsEditor } from "@/components/contacts/contact-details-editor";
 import { prisma } from "@/lib/prisma";
 import { ContactConsentEditor } from "@/components/contacts/contact-consent-editor";
@@ -23,7 +24,7 @@ const CONSENT_LABELS: Record<string, string> = {
   UNKNOWN: "לא ידוע",
 };
 
-export default async function ContactDetailPage({
+export default organizationRequest(async function ContactDetailPage({
   params,
 }: {
   params: Promise<{ contactId: string }>;
@@ -116,4 +117,4 @@ export default async function ContactDetailPage({
       </div>
     </div>
   );
-}
+});

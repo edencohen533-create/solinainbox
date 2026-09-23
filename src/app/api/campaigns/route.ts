@@ -1,12 +1,13 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { campaignActor } from "@/lib/campaign-auth";
 import { campaignSchema } from "@/lib/campaigns";
 import { CampaignError, createCampaign, listCampaigns } from "@/server/services/campaign-service";
 
-export async function GET() {
+export const GET = organizationRequest(async function() {
   if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   return Response.json({ campaigns: await listCampaigns() });
-}
-export async function POST(request: Request) {
+});
+export const POST = organizationRequest(async function(request: Request) {
   const actor = await campaignActor();
   if (!actor) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const parsed = campaignSchema.safeParse(await request.json().catch(() => null));
@@ -16,4 +17,4 @@ export async function POST(request: Request) {
     if (error instanceof CampaignError) return Response.json({ error: error.message }, { status: 400 });
     throw error;
   }
-}
+});

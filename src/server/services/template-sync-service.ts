@@ -1,3 +1,4 @@
+import { requireOrganizationId } from "@/lib/organization-context";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { templateParameterKeys } from "@/lib/campaigns";
@@ -52,7 +53,7 @@ export async function syncMetaTemplates() {
   await prisma.$transaction(async (tx) => {
     await tx.template.updateMany({ where: { providerAccountId: config.businessAccountId, providerTemplateId: { notIn: mapped.map((template) => template.providerTemplateId) } }, data: { status: "REJECTED", syncError: "התבנית אינה קיימת עוד בחשבון Meta" } });
     for (const template of mapped) {
-      await tx.template.upsert({ where: { name_language: { name: template.name, language: template.language } },
+      await tx.template.upsert({ where: { organizationId_name_language: { organizationId: requireOrganizationId(), name: template.name, language: template.language } },
         create: { ...template, providerAccountId: config.businessAccountId }, update: { ...template, providerAccountId: config.businessAccountId },
       });
     }

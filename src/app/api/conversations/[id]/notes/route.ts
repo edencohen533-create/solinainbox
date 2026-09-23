@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildConversationScope } from "@/server/services/conversation-service";
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -21,4 +22,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     return note ? Response.json({ note }, { status: 201 }) : Response.json({ error: "Not found" }, { status: 404 });
   } catch { return Response.json({ error: "לא ניתן לשמור את ההערה כרגע" }, { status: 500 }); }
-}
+});

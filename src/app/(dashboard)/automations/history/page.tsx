@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
 import { AccessDenied } from "@/components/shared/access-denied";
@@ -20,7 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
   RUNNING: "רץ",
 };
 
-export default async function AutomationHistoryPage() {
+export default organizationRequest(async function AutomationHistoryPage() {
   if (!hasRole(await auth(), ROLES_ADMIN_MANAGER)) return <AccessDenied />;
   const runs = await listRuns();
 
@@ -61,4 +62,4 @@ export default async function AutomationHistoryPage() {
       </div>
     </div>
   );
-}
+});

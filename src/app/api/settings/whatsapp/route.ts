@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { MetaConnectionError } from "@/server/services/meta-connection-service";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -5,7 +6,7 @@ import { hasRole, ROLES_ADMIN } from "@/lib/auth-guards";
 import { metaProviderConfigSchema } from "@/lib/validation/provider";
 import { activateMetaProvider, getActiveProviderSummary } from "@/server/services/provider-credential-service";
 
-export async function GET() {
+export const GET = organizationRequest(async function() {
   const session = await auth();
   if (!session || !hasRole(session, ROLES_ADMIN)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -13,9 +14,9 @@ export async function GET() {
 
   const summary = await getActiveProviderSummary();
   return NextResponse.json(summary);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = organizationRequest(async function(request: Request) {
   const session = await auth();
   if (!session || !hasRole(session, ROLES_ADMIN)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -32,6 +33,6 @@ export async function POST(request: Request) {
     throw error;
   }
   return NextResponse.json({ ok: true });
-}
+});
 
 export const maxDuration = 60;

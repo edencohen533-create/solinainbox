@@ -1,3 +1,4 @@
+import { requireOrganizationId } from "@/lib/organization-context";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
 import { writeAuditLog } from "@/lib/audit";
@@ -65,7 +66,7 @@ export async function createContact(input: ContactInput, actorUserId: string) {
     throw new InvalidPhoneError(input.phone);
   }
 
-  const existing = await prisma.contact.findUnique({ where: { phone: normalizedPhone } });
+  const existing = await prisma.contact.findUnique({ where: { organizationId_phone: { organizationId: requireOrganizationId(), phone: normalizedPhone } } });
   if (existing) {
     throw new DuplicateContactError(normalizedPhone);
   }
@@ -118,7 +119,7 @@ export async function updateContact(id: string, input: Partial<ContactInput>, ac
     if (!normalizedPhone) {
       throw new InvalidPhoneError(input.phone);
     }
-    const existing = await prisma.contact.findUnique({ where: { phone: normalizedPhone } });
+    const existing = await prisma.contact.findUnique({ where: { organizationId_phone: { organizationId: requireOrganizationId(), phone: normalizedPhone } } });
     if (existing && existing.id !== id) {
       throw new DuplicateContactError(normalizedPhone);
     }

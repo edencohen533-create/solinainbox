@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { listConversations } from "@/server/services/conversation-service";
 import { ConversationListPane } from "@/components/inbox/conversation-list";
 import type { ConversationListItem } from "@/types/domain";
 
-export default async function InboxLayout({ children }: { children: React.ReactNode }) {
+export default organizationRequest(async function InboxLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   // Server-rendered, unfiltered initial list so /inbox has real content on
   // first paint instead of a client-side fetch-then-skeleton flash. The
@@ -18,4 +19,4 @@ export default async function InboxLayout({ children }: { children: React.ReactN
       <div className="min-w-0 flex-1 overflow-hidden">{children}</div>
     </div>
   );
-}
+});

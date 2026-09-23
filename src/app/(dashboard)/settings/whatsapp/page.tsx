@@ -1,10 +1,11 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN } from "@/lib/auth-guards";
 import { AccessDenied } from "@/components/shared/access-denied";
 import { getActiveProviderSummary } from "@/server/services/provider-credential-service";
 import { WhatsAppProviderForm } from "@/components/settings/whatsapp-provider-form";
 
-export default async function WhatsAppSettingsPage() {
+export default organizationRequest(async function WhatsAppSettingsPage() {
   const session = await auth();
 
   if (!hasRole(session, ROLES_ADMIN)) {
@@ -24,4 +25,4 @@ export default async function WhatsAppSettingsPage() {
       <WhatsAppProviderForm initialSummary={summary} webhookUrl={webhookUrl} />
     </div>
   );
-}
+});

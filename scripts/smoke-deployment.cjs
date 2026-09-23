@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Deployment verification script. */
 const assert = require('node:assert/strict');
 const base = process.argv[2];
-if (!base || !base.startsWith('https://')) throw new Error('Supply an HTTPS deployment URL');
+const target = base ? new URL(base) : null;
+if (!target || !(target.protocol === 'https:' || (target.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(target.hostname)))) throw new Error('Supply an HTTPS deployment URL or local QA URL');
 const cookies = new Map();
 async function request(path, options = {}, authenticated = true) {
   const response = await fetch(new URL(path, base), {

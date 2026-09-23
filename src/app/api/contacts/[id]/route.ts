@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { contactSchema } from "@/lib/validation/contact";
 import { getContact, updateContact, DuplicateContactError, InvalidPhoneError } from "@/server/services/contact-service";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = organizationRequest(async function(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -15,9 +16,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   return NextResponse.json({ contact });
-}
+});
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,4 +43,4 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if ((error as { code?: string }).code === "P2025") return NextResponse.json({ error: "Not found" }, { status: 404 });
     throw error;
   }
-}
+});

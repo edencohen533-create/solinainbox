@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { RightNav } from "@/components/layout/right-nav";
 import { TopBar } from "@/components/layout/top-bar";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default organizationRequest(async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
   if (!session?.user) {
@@ -19,4 +20,4 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
     </div>
   );
-}
+});

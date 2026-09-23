@@ -4,6 +4,7 @@ require('@next/env').loadEnvConfig(process.cwd());
 const { PrismaClient } = require('@prisma/client');
 const { execFileSync, spawn } = require('node:child_process');
 const bcrypt = require('bcryptjs');
+const fs = require('node:fs');
 const schema = 'solina_qa_20260923';
 for (const key of ['DATABASE_URL', 'DIRECT_URL']) {
   const url = new URL(process.env[key]);
@@ -38,6 +39,10 @@ if (require.main === module) (async () => {
       if (existing.length) throw new Error('QA schema already exists; refusing to overwrite fixtures');
       // Capture output because Prisma prints database connection metadata.
       execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'db', 'push', '--skip-generate'], { env: process.env, stdio: 'pipe' });
+      // Same constraints and RLS as production, in the isolated QA namespace.
+      const security = fs.readFileSync('scripts/organization-security.sql', 'utf8').replace('ON SCHEMA public', `ON SCHEMA "${schema}"`);
+      // One atomic server-side block avoids hundreds of network round trips.
+      await db.$executeRawUnsafe(`DO $qa_security$ BEGIN\nPERFORM set_config('search_path', '"${schema}"', true);\n${security}\nEND $qa_security$`);
       const passwordHash = await bcrypt.hash('QA-only-Password-2026!', 10);
       for (const [id, role] of [['qa-admin', 'ADMIN'], ['qa-manager', 'MANAGER'], ['qa-agent-a', 'AGENT'], ['qa-agent-b', 'AGENT']]) {
         await db.user.create({ data: { id, name: id, email: `${id}@example.test`, role, passwordHash } });

@@ -1,7 +1,7 @@
 id,section,requirement,status,priority,evidence_or_gap,code_path
 1.01,חיבור וניהול חשבונות,חיבור עסק ומספר,מומש חלקית,P1,הזנת credentials ובדיקת בעלות; אין Embedded Signup/רישום מספר בממשק,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
 1.02,חיבור וניהול חשבונות,מספרים מרובים לעסק,חסר,P1,"ספק פעיל יחיד; מחייב שיוך מספר לשיחות, קבצים ותבניות לפני הרחבה",src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
-1.03,חיבור וניהול חשבונות,שיוך מספר לעסק ולצוות,חסר,P0,אין ישות עסק; Team קיים למשתמשים בלבד. פריסה זו מיועדת לעסק אחד,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.03,חיבור וניהול חשבונות,שיוך מספר לעסק ולצוות,מומש חלקית,P1,מספר משויך לעסק באמצעות credential ו־RLS; שיוך מספר לצוות ומספרים מרובים באותו עסק עדיין חסרים,src/lib/organization-context.ts; src/app/api/webhooks/whatsapp/route.ts
 1.04,חיבור וניהול חשבונות,סטטוס חיבור והרשאות,מומש חלקית,P0,בדיקת Graph קריאה; הגדרה שמורה אינה מוצגת כאימות חיבור נוכחי,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
 1.05,חיבור וניהול חשבונות,תקינות Webhook ושגיאת חיבור אחרונה,מומש חלקית,P1,שגיאה ובדיקה אחרונה נשמרות; הרשמת אפליקציה אינה הוכחת אירוע נכנס,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
 1.06,חיבור וניהול חשבונות,פקיעת טוקן וביטול הרשאה,מומש חלקית,P0,קודי הרשאה מוכרים חוסמים שליחה; אין ניטור expiry יזום,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
@@ -79,7 +79,7 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 6.09,תזמון ומנוע שליחה,rate limits ותקלות ספק,מומש חלקית,P0,כשל נשמר; הרשאות ידועות חוסמות; rate-limit לא נדחה לתור מחדש,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
 6.10,תזמון ומנוע שליחה,לחיצה כפולה והפעלה מחדש,מומש ונבדק,P0,CAS קמפיין ו־recipient; requestKey להודעות UI; unique DB,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
 6.11,תזמון ומנוע שליחה,התאוששות מקריסת worker,מומש חלקית,P0,PROCESSING ישן עובר UNKNOWN; אין blind retry; בדיקת מצב אחרי קריסה אמיתית חסרה,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
-6.12,תזמון ומנוע שליחה,בידוד עומסים עסקים ומספרים,חסר,P0,עסק אחד ומספר אחד; אין fair scheduling,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.12,תזמון ומנוע שליחה,בידוד עומסים עסקים ומספרים,מומש חלקית,P1,"סריקה הוגנת בין עסקים, תפקיד RLS וכשל מבודד לכל עסק; בידוד ותזמון בין מספרים באותו עסק עדיין חסרים",src/jobs/organization-runner.ts; tests/unit/organization-worker.test.ts
 6.13,תזמון ומנוע שליחה,תדירות שיווק בין קמפיינים ואוטומציות,מומש ונבדק,P0,"CAS על Contact.lastMarketingAt; מדיניות מקומית שמרנית אחת ל־24 שעות, גם כשכשל לא ודאי",src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
 6.14,תזמון ומנוע שליחה,timeout אינו exactly-once,מומש ונבדק,P0,UNKNOWN נשמר; requestKey לא נשלח שוב; אין התחייבות exactly-once אצל Meta,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
 7.01,סטטוסים ותיעוד,ממתינה ובטיפול,מומש חלקית,P1,Message QUEUED ו־recipient PROCESSING; אין PROCESSING אחיד להודעה,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
@@ -152,12 +152,12 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 11.10,דוחות ומדידה,מכנה חלון זמן ושיטת ספירה,מומש חלקית,P1,נוספו הסברים לדוח הקיים; אין כל המדדים המבוקשים,src/server/services/analytics-service.ts; campaign-service.ts
 11.11,דוחות ומדידה,הודעות מול נמענים ייחודיים,מומש חלקית,P1,Recipient unique בקמפיין מול Message; אין dashboard השוואתי,src/server/services/analytics-service.ts; campaign-service.ts
 11.12,דוחות ומדידה,דיוק מול מערך ידוע,מומש חלקית,P0,בדיקות worker counts; נדרש מערך אנליטיקה כולל שיוך/טיפול,src/server/services/analytics-service.ts; campaign-service.ts
-12.01,הרשאות ואבטחה,הפרדה בין עסקים בכל טבלה ו־API,חסר,P0,אין tenant model. אין לצרף עסק שני לאותה פריסה,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.01,הרשאות ואבטחה,הפרדה בין עסקים בכל טבלה ו־API,מומש ונבדק,P0,23 טבלאות עם הקשר עסק ו־RLS לתפקיד שרת מוגבל; FK מורכב חוסם קשרים בין עסקים; API/SQL/מקביליות נבדקו ב־PostgreSQL מבודד; אין ערוצים ציבוריים,src/lib/prisma.ts; src/lib/organization-request.ts; scripts/organization-security.sql; tests/qa/organization-isolation.test.ts
 12.02,הרשאות ואבטחה,קבצים ו־realtime בין עסקים,חסר,P0,scope נציג בלבד; אין tenant; realtime משדר invalidation ריק,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
 12.03,הרשאות ואבטחה,תפקידי נציג מנהל אדמין,מומש ונבדק,P0,API/UI guards; סשן נשלל בשינוי הרשאות/סיסמה,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
 12.04,הרשאות ואבטחה,צפייה ייצוא קמפיין ואוטומציות,מומש חלקית,P0,campaign/automation manager+; export חסר; אין ACL granular,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
 12.05,הרשאות ואבטחה,אימות Webhook,מומש ונבדק,P0,HMAC SHA256 ותזמון בטוח; config appSecret נדרש,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
-12.06,הרשאות ואבטחה,החלפת מזהים IDOR,מומש ונבדק,P0,QA בין נציגים; אינה בדיקת tenants כי אין tenants,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.06,הרשאות ואבטחה,החלפת מזהים IDOR,מומש ונבדק,P0,בדיקות IDOR בין נציגים ובין עסקים: קריאה/עדכון/מחיקה וקישור רשומות; API שיחה זרה וייצוא מבודד,tests/qa/organization-isolation.test.ts; tests/qa/meta-workflows.test.ts
 12.07,הרשאות ואבטחה,סודות ולוגים,מומש חלקית,P0,"server-only ומיסוך; credentials JSON במסד מוגן, אין encryption key נפרד",src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
 12.08,הרשאות ואבטחה,גישה לקבצים,מומש ונבדק,P0,proxy דורש session ו־conversation scope; אין public Storage,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
 12.09,הרשאות ואבטחה,סוג וגודל קובץ,מומש חלקית,P0,MIME allowlist וגודל; אין magic-byte inspection/antivirus,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
@@ -188,7 +188,7 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 14.09,QA מעשי,פקיעת טוקן באמצע קמפיין,מומש חלקית,P0,mock code190 וחסימת credential; אין live expiry,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.10,QA מעשי,שתי אוטומציות לאותו נמען,מומש חלקית,P0,marketing CAS ו־lease נבדקים; workflow כפול E2E חסר,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.11,QA מעשי,שני נציגים עונים,מומש חלקית,P0,lease ואידמפוטנטיות בבדיקות; אין presence UI,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
-14.12,QA מעשי,גישה לעסק אחר,חסום לבדיקה,P0,אין tenant; בדיקת cross-agent אינה תחליף,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.12,QA מעשי,גישה לעסק אחר,מומש ונבדק,P0,5 בדיקות PostgreSQL/API עם שני עסקים סינתטיים; חשבון הלקוח בסשן נקבע מחדש במסד; ללא Meta חי,tests/qa/organization-isolation.test.ts; tests/unit/organization-boundary.test.ts
 14.13,QA מעשי,ייבוא גדול ו־10k קמפיין מדומה,מומש ונבדק,P1,parser10k ו־worker10000 עם DB מדומה; אינו benchmark DB או Meta,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.14,QA מעשי,דוחות מול נתונים ידועים,מומש חלקית,P0,counts מדומים; זמן טיפול מטעה הוסר; suite מדדים מלא חסר,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.15,QA מעשי,אפס הודעות אמיתיות ללקוחות,מומש ונבדק,P0,Graph mock וחיבור בדיקה מבודד; אין active Meta בפרודקשן,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs

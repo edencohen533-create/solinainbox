@@ -1,3 +1,4 @@
+import { requireOrganizationId } from "@/lib/organization-context";
 import { personalizeVariables } from "@/lib/campaigns";
 import { prisma } from "@/lib/prisma";
 import {
@@ -149,7 +150,7 @@ export async function executeAction(
     case AutomationActionType.ADD_TAG: {
       const tagName = config.tagName as string | undefined;
       if (!tagName) return { skipped: "no tagName configured" };
-      const tag = await prisma.tag.upsert({ where: { name: tagName }, update: {}, create: { name: tagName } });
+      const tag = await prisma.tag.upsert({ where: { organizationId_name: { organizationId: requireOrganizationId(), name: tagName } }, update: {}, create: { name: tagName } });
       await prisma.conversationTag.upsert({
         where: { conversationId_tagId: { conversationId, tagId: tag.id } },
         update: {},

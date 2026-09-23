@@ -1,9 +1,10 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { listConversations, type ConversationListFilter } from "@/server/services/conversation-service";
 
-export async function GET(request: Request) {
+export const GET = organizationRequest(async function(request: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,9 +21,9 @@ export async function GET(request: Request) {
 
   const conversations = await listConversations(session, filter);
   return NextResponse.json({ conversations });
-}
+});
 
-export async function POST(request: Request) {
+export const POST = organizationRequest(async function(request: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { startConversation, ConversationStartError } = await import("@/server/services/conversation-service");
@@ -33,4 +34,4 @@ export async function POST(request: Request) {
     if (error instanceof ConversationStartError) return NextResponse.json({ error: error.message }, { status: 409 });
     throw error;
   }
-}
+});

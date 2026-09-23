@@ -1,3 +1,4 @@
+import { requireOrganizationId } from "@/lib/organization-context";
 import { templateParameterKeys, validateTemplateVariables } from "@/lib/campaigns";
 import { metaWebhookSchema, providerTimestamp, InvalidWebhookError, type MetaInboundMessage } from "@/lib/validation/whatsapp-webhook";
 import { updateProviderMessageStatus } from "@/server/services/message-status-service";
@@ -230,7 +231,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   private async handleInboundMessage(message: MetaInboundMessage, contactName: string | undefined) {
     const phone = normalizePhone(`+${message.from}`) ?? `+${message.from}`;
 
-    const contact = await prisma.contact.upsert({ where: { phone }, update: {}, create: {
+    const contact = await prisma.contact.upsert({ where: { organizationId_phone: { organizationId: requireOrganizationId(), phone } }, update: {}, create: {
       name: contactName ?? phone, phone, source: "whatsapp",
     } });
 

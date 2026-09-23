@@ -1,53 +1,47 @@
-import { InvalidWebhookError } from "@/lib/validation/whatsapp-webhook";
 import { NextResponse } from "next/server";
-import { getActiveProvider } from "@/server/providers/provider-registry";
+import { metaWebhookSchema, InvalidWebhookError } from "@/lib/validation/whatsapp-webhook";
+import { systemDatabase } from "@/lib/system-database";
+import { withOrganization } from "@/lib/organization-context";
+import { MetaWhatsAppProvider, type MetaWhatsAppConfig } from "@/server/providers/meta-whatsapp-provider";
 
-/**
- * Meta's webhook verification handshake, run once when you register the
- * callback URL in the Meta App dashboard (WhatsApp → Configuration).
- */
+export const maxDuration = 60;
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
-  const challenge = url.searchParams.get("hub.challenge");
-
-  const provider = await getActiveProvider();
-  const result = provider.verifyWebhookChallenge(mode, token, challenge);
-
-  if (result === null) {
-    return NextResponse.json({ error: "Verification failed" }, { status: 403 });
+  if (!token || url.searchParams.get("hub.mode") !== "subscribe") return NextResponse.json({ error: "Verification failed" }, { status: 403 });
+  const credentials = await systemDatabase.providerCredential.findMany({
+    where: { provider: "meta_whatsapp_cloud_api", config: { path: ["webhookVerifyToken"], equals: token } },
+  });
+  for (const credential of credentials) {
+    const provider = new MetaWhatsAppProvider(credential.config as unknown as MetaWhatsAppConfig, credential.id);
+    const challenge = provider.verifyWebhookChallenge("subscribe", token, url.searchParams.get("hub.challenge"));
+    if (challenge !== null) return new NextResponse(challenge);
   }
-  return new NextResponse(result, { status: 200 });
+  return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
-/**
- * Inbound messages and delivery/read status updates from Meta. Verifies the
- * request signature, then hands the payload to the active provider, which
- * calls messageService.createInboundMessage() — the same function the mock
- * provider's Demo Simulator uses.
- */
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  const provider = await getActiveProvider();
-
-  if (!provider.verifyWebhook(request.headers, rawBody)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-
+  if (Buffer.byteLength(rawBody) > 2_000_000) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   let payload: unknown;
-  try {
-    payload = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  try { payload = JSON.parse(rawBody); }
+  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = metaWebhookSchema.safeParse(payload);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
+  const phoneIds = [...new Set(parsed.data.entry.flatMap((entry) => entry.changes.map((change) => change.value.metadata?.phone_number_id)).filter((id): id is string => Boolean(id)))];
+  if (!phoneIds.length) return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
+  // Untrusted IDs only select a signature-verification key. No tenant data is touched until every signature is checked.
+  const credentials = await systemDatabase.providerCredential.findMany({ where: { provider: "meta_whatsapp_cloud_api", phoneNumberId: { in: phoneIds } } });
+  const providers = credentials.map((credential) => ({ credential, provider: new MetaWhatsAppProvider(credential.config as unknown as MetaWhatsAppConfig, credential.id) }));
+  if (!providers.length || providers.some(({ provider }) => !provider.verifyWebhook(request.headers, rawBody))) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  // Inactive credentials still receive delivery receipts. Phone bindings are globally unique and never transferred automatically.
+  for (const { credential, provider } of providers) {
+    if (!await systemDatabase.organization.findFirst({ where: { id: credential.organizationId, isActive: true }, select: { id: true } })) continue;
+    try { await withOrganization(credential.organizationId, () => provider.receiveWebhook(parsed.data)); }
+    catch (error) {
+      if (error instanceof InvalidWebhookError) return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
+      throw error;
+    }
   }
-
-  try { await provider.receiveWebhook(payload); }
-  catch (error) {
-    if (error instanceof InvalidWebhookError) return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
-    throw error;
-  }
-
-  // Meta requires a fast 200 response, or it will retry the same webhook.
   return NextResponse.json({ ok: true });
 }

@@ -1,10 +1,11 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
 import { AccessDenied } from "@/components/shared/access-denied";
 import { prisma } from "@/lib/prisma";
 import { DemoSimulatorForm } from "./demo-simulator-form";
 
-export default async function DemoSimulatorPage() {
+export default organizationRequest(async function DemoSimulatorPage() {
   const session = await auth();
 
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) {
@@ -26,4 +27,4 @@ export default async function DemoSimulatorPage() {
       <DemoSimulatorForm contacts={contacts} />
     </div>
   );
-}
+});

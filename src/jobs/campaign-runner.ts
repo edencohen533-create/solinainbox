@@ -6,8 +6,7 @@ import { createOutboundMessage, MessagePolicyError } from "@/server/services/mes
 /** Bounded batches; CAS claims prevent two workers sending the same recipient.
  * Ambiguous sends are never automatically retried (the provider is not idempotent).
  */
-export async function processDueCampaigns() {
-  const deadline = Date.now() + 45_000;
+export async function processDueCampaigns(deadline = Date.now() + 45_000) {
   await prisma.campaignRecipient.updateMany({
     where: { status: "PROCESSING", claimedAt: { lt: new Date(Date.now() - 10 * 60_000) } },
     data: { status: "UNKNOWN", error: "העיבוד נקטע; יש לבדוק אצל הספק לפני שליחה נוספת", completedAt: new Date() },

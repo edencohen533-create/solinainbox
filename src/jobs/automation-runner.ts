@@ -9,7 +9,7 @@ import { executeAction } from "@/server/services/automation-service";
  * action, since state may have changed between scheduling and firing —
  * e.g. an agent may have replied in the meantime.
  */
-export async function processDueAutomationRuns(): Promise<{ processed: number }> {
+export async function processDueAutomationRuns(deadline = Date.now() + 45_000): Promise<{ processed: number }> {
   const due = await prisma.automationRun.findMany({
     where: { status: AutomationRunStatus.PENDING, scheduledFor: { lte: new Date() } },
     take: 25,
@@ -19,6 +19,7 @@ export async function processDueAutomationRuns(): Promise<{ processed: number }>
   let processed = 0;
 
   for (const run of due) {
+    if (Date.now() >= deadline) break;
     const claimed = await prisma.automationRun.updateMany({
       where: { id: run.id, status: AutomationRunStatus.PENDING },
       data: { status: AutomationRunStatus.RUNNING, attempts: { increment: 1 } },

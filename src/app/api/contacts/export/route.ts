@@ -1,10 +1,11 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 import { csvRows } from "@/lib/csv-export";
 import { buildContactScope } from "@/server/services/contact-service";
 
-export async function GET(request: Request) {
+export const GET = organizationRequest(async function(request: Request) {
   const session = await auth();
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) return Response.json({ error: "Forbidden" }, { status: 403 });
   const search = (new URL(request.url).searchParams.get("search") ?? "").slice(0, 200);
@@ -17,4 +18,4 @@ export async function GET(request: Request) {
     ["name", "phone", "email", "source", "consentStatus", "isBlocked", "consentAt", "consentSource", "consentScope"],
     ...contacts.map((c) => [c.name, c.phone, c.email, c.source, c.consentStatus, c.isBlocked, c.consentAt?.toISOString(), c.consentSource, c.consentScope]),
   ]), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="contacts.csv"', "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
-}
+});

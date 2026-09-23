@@ -1,3 +1,4 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -11,7 +12,7 @@ const sendMessageSchema = z.object({
   templateVariables: z.record(z.string(), z.string().trim().min(1).max(1024)).optional(),
 }).refine((value) => value.templateId || value.body.length > 0);
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -27,9 +28,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.error("Message send failed", error instanceof Error ? error.name : "Unknown");
     return Response.json({ error: "לא ניתן לאמת את השליחה. יש לבדוק את השיחה לפני ניסיון נוסף" }, { status: 502 });
   }
-}
+});
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const GET = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -49,4 +50,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   });
   if (!conversation) return Response.json({ error: "Not found" }, { status: 404 });
   return Response.json({ messages: conversation.messages.slice(0, 100).reverse(), hasMore: conversation.messages.length > 100, lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
-}
+});

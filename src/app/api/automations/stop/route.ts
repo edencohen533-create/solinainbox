@@ -1,8 +1,9 @@
+import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 
-export async function POST() {
+export const POST = organizationRequest(async function() {
   const session = await auth();
   if (!hasRole(session, ROLES_ADMIN_MANAGER)) return Response.json({ error: "Forbidden" }, { status: 403 });
   const result = await prisma.$transaction(async (tx) => {
@@ -14,4 +15,4 @@ export async function POST() {
     return { stoppedRules: rules.count, cancelledPendingRuns: runs.count };
   });
   return Response.json(result);
-}
+});
