@@ -72,8 +72,8 @@ export default async function ContactDetailPage({
         </div>
       )}
 
-      <ContactDetailsEditor key={contact.updatedAt.toISOString()} contact={contact} tags={tags} />
-      <ContactConsentEditor contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
+      <ContactDetailsEditor key={`${contact.id}:${contact.updatedAt.toISOString()}`} contact={contact} tags={tags} />
+      <ContactConsentEditor key={contact.id} contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
       <StartConversationButton contactId={contact.id} disabled={contact.consentStatus === "OPTED_OUT"} />
       <Separator />
 

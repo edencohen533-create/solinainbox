@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const baseURL = 'http://localhost:3101';
 const artifactDir = '/tmp/solina-qa-browser';
+const operationsOnly = process.argv.includes('--operations-only');
 fs.mkdirSync(artifactDir, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -63,6 +64,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
     assert.equal((await a.request.get('/api/campaigns')).status(), 403);
     console.log('PASS authenticated cross-agent access and management restrictions');
     await a.page.goto(`/inbox/${id}`);
+    if (!operationsOnly) {
     assert.equal(await a.page.getByPlaceholder('הקלד הודעה...').count(), 0);
     await a.page.getByRole('button', { name: 'שליחת תבנית מאושרת' }).click();
     await a.page.getByRole('combobox', { name: 'תבנית הודעה' }).selectOption('qa-template');
@@ -86,6 +88,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
     await a.page.waitForFunction(() => document.querySelector('textarea[placeholder="הקלד הודעה..."]')?.value === 'טיוטת QA לשמירה לאחר רענון');
     assert.equal((await b.request.get(`/api/conversations/${id}/draft`)).status(), 404);
     console.log('PASS private draft survives refresh and rejects another agent');
+    }
     assert.equal((await b.request.post(`/api/conversations/${id}/notes`, { data: { body: 'אסור' } })).status(), 404);
     await a.page.getByText(/הערות פנימיות לצוות/).click();
     await a.page.getByRole('textbox', { name: 'הערה פנימית לצוות' }).fill('QA הערה פנימית שאינה נשלחת ללקוח');
@@ -118,6 +121,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
 
 
     await a.page.screenshot({ path: `${artifactDir}/inbox-desktop.png`, fullPage: true, animations: "disabled" });
+    if (!operationsOnly) {
     console.log('PASS inbound polling enables service reply and outbound message renders');
     await admin.page.goto('/templates');
     await admin.page.getByRole('button', { name: 'תבנית חדשה לאישור' }).click();
@@ -130,17 +134,19 @@ fs.mkdirSync(artifactDir, { recursive: true });
     assert.equal((await submission).status(), 502);
     await admin.page.getByText('יש לחבר חשבון Meta ולהגדיר Business Account ID לפני הגשה', { exact: true }).waitFor();
     console.log('PASS template submission form with examples; mock mode cannot submit to Meta');
+    }
     const listResponse = await admin.request.post('/api/distribution-lists', { data: { name: 'QA browser list', contactIds: [contactId, 'qa-contact-1'] } });
     assert.equal(listResponse.status(), 201);
     const listId = (await listResponse.json()).list.id;
-    const campaignResponse = await admin.request.post('/api/campaigns', { data: { name: 'QA review campaign', listId, templateId: 'qa-template', variables: { '1': '{name}' } } });
+    const campaignName = `QA review campaign ${Date.now()}`;
+    const campaignResponse = await admin.request.post('/api/campaigns', { data: { name: campaignName, listId, templateId: 'qa-template', variables: { '1': '{name}' } } });
     assert.equal(campaignResponse.status(), 201);
     const draftCampaign = (await campaignResponse.json()).campaign;
     const review = await admin.request.get(`/api/campaigns/${draftCampaign.id}?preflight=1`);
     assert.equal(review.status(), 200); const reviewData = await review.json();
     assert.equal(reviewData.totalQueued, 2); assert.equal(reviewData.eligible, 1);
     await admin.page.goto('/campaigns');
-    await admin.page.getByRole('button', { name: 'התחל שליחה', exact: true }).click();
+    await admin.page.locator('article').filter({ has: admin.page.getByRole('heading', { name: campaignName, exact: true }) }).getByRole('button', { name: 'התחל שליחה', exact: true }).click();
     await admin.page.getByRole('region', { name: 'סיכום לפני שליחה' }).waitFor();
     assert.equal(await admin.page.getByRole('button', { name: 'אשר והפעל' }).isEnabled(), true);
     await admin.page.screenshot({ path: `${artifactDir}/campaign-preflight.png`, fullPage: true, animations: 'disabled' });
@@ -156,6 +162,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
     const stopped = await admin.request.post('/api/automations/stop');
     assert.equal(stopped.status(), 200); assert.ok((await stopped.json()).stoppedRules >= 1);
     console.log('PASS campaign duplication remains draft; manager stop-all disables rules');
+    if (operationsOnly) { assert.deepEqual(errors, []); console.log('PASS operational browser checks complete'); return; }
 
     await admin.page.getByRole('button', { name: /רשימות תפוצה \(/ }).click();
     await admin.page.getByLabel('שם הרשימה המיובאת').fill('QA mapped import');
