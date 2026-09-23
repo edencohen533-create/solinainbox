@@ -4,6 +4,8 @@
 
 QA uses synthetic users, contacts and messages in `solina_qa_20260923`, a separate, non-public PostgreSQL schema. Meta HTTP responses are simulated during integration tests; browser delivery uses the mock provider. No customer messages were sent and no live Meta credentials were configured.
 
+Automated results: 89 unit/component tests across 19 files passed. The final five PostgreSQL scenarios also passed (269 seconds). ESLint, TypeScript, local production builds and the Vercel Turbopack production build passed. npm audit reported zero vulnerabilities after the targeted dependency update.
+
 Verified service workflows on real PostgreSQL (five integration scenarios):
 
 - Concurrent starts create one conversation. A representative cannot read another representative's conversation/contact, claim that conversation, or start a competing thread.
@@ -14,13 +16,17 @@ Verified service workflows on real PostgreSQL (five integration scenarios):
 
 The initial database run exposed transaction expiry under network latency. Prisma interactive transactions now have bounded 20-second timeouts and a 10-second acquisition limit; the complete database suite passed after the fix.
 
+Browser acceptance passed against a local production build with real isolated PostgreSQL: administrator and two representative sign-ins, start/assign a lead, cross-agent API denial, template send outside the service window (mock delivery), inbound polling, representative text reply, template submission form and mock-mode guard, desktop/mobile campaign layout, connection diagnostics, and password-reset session revocation. No browser runtime errors were recorded. Screenshots were visually reviewed.
+
+The candidate Vercel deployment also passed authenticated read-only smoke checks: login, inbox, campaigns, templates, WhatsApp settings and related APIs; unauthenticated management/cron calls are denied. Production data remained at 262 contacts, 459 messages and zero campaigns, with zero live Meta connections and zero public tables without RLS.
+
 ## Changes resulting from QA
 
 - Added text-template submission to Meta from the templates screen (Marketing/Utility, positional variables and review examples). Templates remain unavailable until approved. Interrupted submissions are retained for reconciliation through synchronization, without automatic resubmission.
 - Added contact-to-conversation initiation and representative display in the contacts list. Assignment survives closed conversations and returning inbound contacts; inactive representatives cannot be assigned through automation.
 - Scoped contact reads, updates and related conversation/note history to representative permissions. Restricted automation management/history to managers/admins and hid unavailable account-management controls.
 - Added read-only Meta connection diagnostics, number-to-WABA ownership validation and required WABA configuration. Provider switching is atomic. Diagnostics report whether an app subscription exists, but cannot prove it is the intended app.
-- Disabled demo inbound simulation whenever a real provider is active.
+- Disabled demo inbound simulation whenever a real provider is active. Historical demo messages cannot establish a real Meta service window; free-text delivery requires a recent verified inbound message.
 - Added password changes, session invalidation after account updates, self-deactivation protection, and a Meta activation gate for active accounts using the published demo password. Existing production credentials were not changed.
 - Added contact consent management; inbound opt-out remains authoritative for subsequent sends.
 - Fixed form-label associations, responsive navigation, inbox layout, page scrolling and global conversation search.
@@ -37,7 +43,8 @@ npm run build -- --webpack
 npm audit
 node scripts/qa-environment.cjs setup
 npm run test:qa
-node scripts/qa-environment.cjs start  # separate terminal; localhost:3101
+node scripts/qa-environment.cjs build
+node scripts/qa-environment.cjs serve  # separate terminal; localhost:3101
 npm run test:browser
 # Stop the QA server, then remove only the synthetic schema:
 node scripts/qa-environment.cjs cleanup

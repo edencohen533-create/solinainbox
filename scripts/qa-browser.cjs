@@ -59,14 +59,14 @@ fs.mkdirSync(artifactDir, { recursive: true });
     await a.page.getByRole('button', { name: 'שלח', exact: true }).click();
     assert.equal((await textSent).status(), 200);
     await a.page.getByText('תשובת נציג בבדיקת דפדפן', { exact: true }).waitFor();
-    await a.page.screenshot({ path: `${artifactDir}/inbox-desktop.png`, fullPage: true });
+    await a.page.screenshot({ path: `${artifactDir}/inbox-desktop.png`, fullPage: true, animations: "disabled" });
     console.log('PASS inbound polling enables service reply and outbound message renders');
     await admin.page.goto('/templates');
     await admin.page.getByRole('button', { name: 'תבנית חדשה לאישור' }).click();
     await admin.page.getByRole('textbox', { name: 'שם התבנית', exact: true }).fill('browser_template');
     await admin.page.getByRole('textbox', { name: 'תוכן התבנית', exact: true }).fill('שלום {{1}}, תודה שפנית אלינו.');
     await admin.page.getByRole('textbox', { name: 'דוגמה למשתנה 1', exact: true }).fill('ישראל');
-    await admin.page.screenshot({ path: `${artifactDir}/template-submission.png`, fullPage: true });
+    await admin.page.screenshot({ path: `${artifactDir}/template-submission.png`, fullPage: true, animations: "disabled" });
     const submission = admin.page.waitForResponse((r) => r.url().endsWith('/api/templates') && r.request().method() === 'POST');
     await admin.page.getByRole('button', { name: 'הגש לאישור Meta' }).click();
     assert.equal((await submission).status(), 502);
@@ -74,14 +74,14 @@ fs.mkdirSync(artifactDir, { recursive: true });
     console.log('PASS template submission form with examples; mock mode cannot submit to Meta');
     await admin.page.goto('/campaigns');
     await admin.page.getByText('QA campaign', { exact: true }).waitFor();
-    await admin.page.screenshot({ path: `${artifactDir}/campaigns-desktop.png`, fullPage: true });
+    await admin.page.screenshot({ path: `${artifactDir}/campaigns-desktop.png`, fullPage: true, animations: "disabled" });
     await admin.page.setViewportSize({ width: 390, height: 844 });
-    await admin.page.screenshot({ path: `${artifactDir}/campaigns-mobile.png`, fullPage: true });
+    await admin.page.screenshot({ path: `${artifactDir}/campaigns-mobile.png`, fullPage: true, animations: "disabled" });
     assert.equal(await admin.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     console.log('PASS campaigns render on desktop and mobile without page overflow');
     await admin.page.goto('/settings/whatsapp');
     assert.equal((await admin.request.post('/api/settings/whatsapp/check')).status(), 409);
-    await admin.page.screenshot({ path: `${artifactDir}/meta-settings-mobile.png`, fullPage: true });
+    await admin.page.screenshot({ path: `${artifactDir}/meta-settings-mobile.png`, fullPage: true, animations: "disabled" });
     await admin.page.setViewportSize({ width: 1440, height: 1000 });
     await admin.page.goto('/settings/users');
     assert.equal((await admin.request.patch('/api/settings/users/qa-agent-b', { data: { password: 'QA-replaced-password-2026!' } })).status(), 200);
@@ -93,7 +93,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
     console.log('PASS no browser runtime errors; screenshots saved to ' + artifactDir);
   } catch (error) {
     for (const [i, context] of browser.contexts().entries()) {
-      for (const [j, page] of context.pages().entries()) await page.screenshot({ path: `${artifactDir}/failure-${i}-${j}.png`, fullPage: true }).catch(() => {});
+      for (const [j, page] of context.pages().entries()) await page.screenshot({ path: `${artifactDir}/failure-${i}-${j}.png`, fullPage: true, animations: "disabled" }).catch(() => {});
     }
     throw error;
   } finally { await browser.close(); }
