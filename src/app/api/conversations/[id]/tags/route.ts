@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildConversationScope } from "@/server/services/conversation-service";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { AutomationTrigger } from "@prisma/client";
@@ -15,11 +16,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id: conversationId } = await params;
-  const parsed = tagSchema.safeParse(await request.json());
+  const parsed = tagSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  if (!await prisma.conversation.findFirst({ where: { id: conversationId, ...buildConversationScope(session) }, select: { id: true } })) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const { tagId } = parsed.data;
 
   await prisma.conversationTag.upsert({
@@ -49,11 +53,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   const { id: conversationId } = await params;
-  const parsed = tagSchema.safeParse(await request.json());
+  const parsed = tagSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  if (!await prisma.conversation.findFirst({ where: { id: conversationId, ...buildConversationScope(session) }, select: { id: true } })) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   await prisma.conversationTag.deleteMany({ where: { conversationId, tagId: parsed.data.tagId } });
   return NextResponse.json({ ok: true });
 }

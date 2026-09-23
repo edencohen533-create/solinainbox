@@ -16,7 +16,7 @@ interface Props {
   initialCampaigns: Campaign[];
   lists: { id: string; name: string; members: { contactId: string }[]; _count: { members: number } }[];
   contacts: { id: string; name: string; phone: string; consentStatus: string }[];
-  templates: { id: string; name: string; body: string }[];
+  templates: { id: string; name: string; body: string; language?: string }[];
   mock: boolean;
 }
 const selectClass = "w-full rounded-md border bg-background p-2 text-sm";
@@ -97,7 +97,7 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
         <div className="space-y-3"><h2 className="font-semibold">קמפיין חדש</h2>
           <label className="block space-y-1"><span>שם הקמפיין</span><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} /></label>
           <label className="block space-y-1"><span>רשימת תפוצה</span><select className={selectClass} value={listId} onChange={(e) => setListId(e.target.value)}><option value="">בחר רשימה</option>{lists.map((list) => <option key={list.id} value={list.id}>{list.name} ({list._count.members})</option>)}</select></label>
-          <label className="block space-y-1"><span>תבנית מאושרת</span><select className={selectClass} value={templateId} onChange={(e) => { setTemplateId(e.target.value); setVariables({}); }}><option value="">בחר תבנית</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+          <label className="block space-y-1"><span>תבנית מאושרת</span><select className={selectClass} value={templateId} onChange={(e) => { setTemplateId(e.target.value); setVariables({}); }}><option value="">בחר תבנית</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.language ? ` (${t.language})` : ""}</option>)}</select></label>
           {template && templateParameterKeys(template.body).map((key) => <label key={key} className="block space-y-1"><span>משתנה {key}</span><Input value={variables[key] ?? ""} onChange={(e) => setVariables({ ...variables, [key]: e.target.value })} placeholder="השתמש ב־{name} לשם הנמען" maxLength={1024} /></label>)}
           <Button disabled={busy || !name.trim() || !listId || !template || templateParameterKeys(template.body).some((key) => !variables[key]?.trim())} onClick={async () => { if (await mutate("/api/campaigns", "POST", { name, listId, templateId, variables })) { setName(""); toast.success("הטיוטה נשמרה. ניתן להתחיל או לתזמן שליחה"); } }}>שמור טיוטה</Button>
         </div>

@@ -1,3 +1,4 @@
+import { listSendableTemplates } from "@/server/services/template-service";
 import { campaignActor } from "@/lib/campaign-auth";
 import { prisma } from "@/lib/prisma";
 import { CampaignDashboard } from "@/components/campaigns/campaign-dashboard";
@@ -10,7 +11,7 @@ export default async function CampaignsPage() {
     listCampaigns(),
     prisma.distributionList.findMany({ orderBy: { createdAt: "desc" }, include: { members: { select: { contactId: true } }, _count: { select: { members: true } } } }),
     prisma.contact.findMany({ orderBy: { name: "asc" }, take: 1000, select: { id: true, name: true, phone: true, consentStatus: true } }),
-    prisma.template.findMany({ where: { status: "APPROVED" }, select: { id: true, name: true, body: true } }),
+    listSendableTemplates(),
     getActiveProviderSummary(),
   ]);
   return <CampaignDashboard initialCampaigns={JSON.parse(JSON.stringify(campaigns))} lists={lists} contacts={contacts} templates={templates} mock={provider.provider === "mock"} />;

@@ -51,6 +51,7 @@ export function ConversationListPane({ initialConversations }: { initialConversa
     if (statusParam === "unassigned") params.set("assignedTo", "unassigned");
 
     const res = await fetch(`/api/conversations?${params.toString()}`);
+    if ([401, 403].includes(res.status)) { setConversations([]); return; }
     if (!res.ok) return;
     const data = await res.json();
     setConversations(data.conversations);
@@ -66,13 +67,13 @@ export function ConversationListPane({ initialConversations }: { initialConversa
       return;
     }
     skippedInitialFetch.current = true;
-    fetchConversations();
+    void fetchConversations().catch(() => {});
   }, [fetchConversations, statusParam]);
 
   useRealtimeChannel(
     INBOX_CHANNEL,
     useCallback(() => {
-      fetchConversations();
+      void fetchConversations().catch(() => {});
     }, [fetchConversations])
   );
 

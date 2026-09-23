@@ -24,6 +24,19 @@ export function MessageBubble({ message }: { message: MessageItem }) {
         )}
       >
         <p className="whitespace-pre-wrap break-words">{message.body}</p>
+        {message.attachments?.map((attachment) => {
+          const safeUrl = attachment.url.startsWith("/api/attachments/") || attachment.url.startsWith("https://") ? attachment.url : null;
+          if (!safeUrl) return null;
+          return <div key={attachment.id} className="mt-2 max-w-sm">
+            {attachment.mimeType.startsWith("image/") ?
+              // Authenticated media requires the browser's session cookie, so use a direct image element.
+              // eslint-disable-next-line @next/next/no-img-element
+              <a href={safeUrl} target="_blank" rel="noreferrer"><img src={safeUrl} alt={attachment.fileName ?? "תמונה מצורפת"} className="max-h-72 rounded object-contain" loading="lazy" /></a>
+              : attachment.mimeType.startsWith("audio/") ? <audio src={safeUrl} controls preload="none" aria-label={attachment.fileName ?? "הודעה קולית"} />
+              : attachment.mimeType.startsWith("video/") ? <video src={safeUrl} controls preload="metadata" className="max-h-72 rounded" aria-label={attachment.fileName ?? "סרטון מצורף"} />
+              : <a href={safeUrl} target="_blank" rel="noreferrer" className="underline">הורדת {attachment.fileName ?? "קובץ מצורף"}</a>}
+          </div>;
+        })}
         <div className={cn("mt-1 flex items-center gap-1 text-[10px] opacity-70", isOutbound ? "justify-start" : "justify-end")}>
           <Ltr>{format(new Date(message.createdAt), "HH:mm")}</Ltr>
           {isOutbound && STATUS_ICON[message.status]}

@@ -17,6 +17,11 @@ const marker = new Error('ROLLBACK_VERIFIED_FIXTURES');
         for (const statement of ddl.split(';').filter((s) => s.trim())) await tx.$executeRawUnsafe(statement);
         if (block) await tx.$executeRawUnsafe('DO $$' + block);
       }
+      const inboxSchema = await tx.$queryRaw`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='Message' AND column_name='inboundKey'`;
+      if (!inboxSchema.length) {
+        const sql = fs.readFileSync('prisma/changes/inbox-reliability.sql', 'utf8');
+        for (const statement of sql.split(';').filter((s) => s.trim())) await tx.$executeRawUnsafe(statement);
+      }
       const tables = await tx.$queryRaw`SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public' AND tablename IN ('Campaign','CampaignRecipient','DistributionList','DistributionListMember')`;
       assert.equal(tables.length, 4);
       assert.ok(tables.every((t) => t.rowsecurity));
@@ -32,7 +37,11 @@ const marker = new Error('ROLLBACK_VERIFIED_FIXTURES');
       const first = await tx.campaignRecipient.updateMany({ where: { campaignId: campaign.id, status: 'QUEUED' }, data: { status: 'PROCESSING', claimedAt: new Date() } });
       const second = await tx.campaignRecipient.updateMany({ where: { campaignId: campaign.id, status: 'QUEUED' }, data: { status: 'PROCESSING', claimedAt: new Date() } });
       assert.equal(first.count, 1); assert.equal(second.count, 0);
-      console.log('PASS: additive DDL, RLS, foreign keys, unique recipients, atomic claims');
+      const conversation = await tx.conversation.create({ data: { contactId: contact.id, source: 'MOCK' } });
+      const dedup = await tx.message.createMany({ data: [1, 2].map(() => ({ conversationId: conversation.id, direction: 'INBOUND', type: 'TEXT', inboundKey: '__rollback_unique_inbound__' })), skipDuplicates: true });
+      assert.equal(dedup.count, 1);
+      await tx.template.create({ data: { name: template.name, language: '__qa__', body: 'test' } });
+      console.log('PASS: DDL, RLS, foreign keys, recipient uniqueness, atomic claims, inbound deduplication, multilingual templates');
       throw marker;
     }, { timeout: 45000 });
   } catch (error) {

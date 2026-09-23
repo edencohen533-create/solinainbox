@@ -115,7 +115,7 @@ async function seedTags() {
 async function seedTemplates() {
   for (const template of TEMPLATE_SEEDS) {
     await prisma.template.upsert({
-      where: { name: template.name },
+      where: { name_language: { name: template.name, language: "he" } },
       update: {
         category: template.category,
         body: template.body,

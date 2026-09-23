@@ -8,7 +8,8 @@ const assert = require('node:assert/strict');
       headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}` },
       signal: AbortSignal.timeout(10000),
     });
-    await response.body?.cancel();
+    const result = await response.json();
+    assert.equal(result.code, "42501", `${table}: request must be blocked by database privileges, not an invalid key`);
     assert.ok([401, 403].includes(response.status), `${table}: unexpected status ${response.status}`);
     console.log(`${table}: public request blocked (${response.status})`);
   }

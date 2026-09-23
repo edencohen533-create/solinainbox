@@ -10,8 +10,10 @@ export class DuplicateEmailError extends Error {
   }
 }
 
+const publicUserFields = { id: true, name: true, email: true, role: true, teamId: true, isActive: true, avatarUrl: true, createdAt: true, updatedAt: true } as const;
+
 export async function listUsers() {
-  return prisma.user.findMany({ orderBy: { createdAt: "asc" } });
+  return prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: publicUserFields });
 }
 
 export async function createUser(input: CreateUserInput, actorUserId: string) {
@@ -23,6 +25,7 @@ export async function createUser(input: CreateUserInput, actorUserId: string) {
   const passwordHash = await bcrypt.hash(input.password, 12);
   const user = await prisma.user.create({
     data: { name: input.name, email: input.email, role: input.role, passwordHash },
+    select: publicUserFields,
   });
 
   await writeAuditLog({
@@ -37,7 +40,7 @@ export async function createUser(input: CreateUserInput, actorUserId: string) {
 }
 
 export async function setUserActive(id: string, isActive: boolean, actorUserId: string) {
-  const user = await prisma.user.update({ where: { id }, data: { isActive } });
+  const user = await prisma.user.update({ where: { id }, data: { isActive }, select: publicUserFields });
 
   await writeAuditLog({
     actorUserId,

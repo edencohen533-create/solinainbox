@@ -26,3 +26,8 @@ This closes the reported Data API exposure. It does not prove whether historical
 unauthorized access occurred. Realtime content and application-route permissions
 are separate controls addressed in the accompanying code changes; those changes
 need to be deployed to affect the running application.
+
+HTTP verification also passed: public requests to User, Contact, Message and
+ProviderCredential return 401 with PostgreSQL error code 42501 (permission denied),
+using the configured anon key. This confirms actual access denial, rather than
+an expired/invalid API credential producing a misleading authentication failure.

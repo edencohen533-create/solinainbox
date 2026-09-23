@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { MAX_UPLOAD_BYTES, MEDIA_TYPES } from "@/lib/media";
 import { renderTemplate, templateParameterKeys } from "@/lib/campaigns";
 import type { MessageItem } from "@/types/domain";
 
-type Template = { id: string; name: string; body: string };
+type Template = { id: string; name: string; body: string; language?: string };
 export function MessageComposer({ conversationId, disabled, disabledReason, onSent }: {
   conversationId: string; disabled?: boolean; disabledReason?: string; onSent?: (message: MessageItem) => void;
 }) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [value, setValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [templates, setTemplates] = useState<Template[] | null>(null);
@@ -20,7 +23,7 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
   const [templateId, setTemplateId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
   const template = templates?.find((t) => t.id === templateId);
-  const canSend = showTemplates ? !!template && templateParameterKeys(template.body).every((key) => variables[key]?.trim()) : !disabled && !!value.trim();
+  const canSend = showTemplates ? !!template && templateParameterKeys(template.body).every((key) => variables[key]?.trim()) : !disabled && (!!value.trim() || !!file);
 
   async function loadTemplates() {
     setShowTemplates(!showTemplates);
@@ -35,14 +38,20 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
     if (!canSend || isSending) return;
     setIsSending(true);
     try {
-      const res = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(showTemplates ? { templateId, templateVariables: variables } : { body: value }),
+      const form = new FormData();
+      if (file) { form.set("file", file); form.set("caption", value); }
+      const res = await fetch(`/api/conversations/${conversationId}/${file && !showTemplates ? "media" : "messages"}`, {
+        method: "POST",
+        ...(file && !showTemplates ? { body: form } : {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(showTemplates ? { templateId, templateVariables: variables } : { body: value }),
+        }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(typeof data.error === "string" ? data.error : "שליחת ההודעה נכשלה"); return; }
       if (data.message) onSent?.({ ...data.message, sentByUser: null });
-      setValue(""); setTemplateId(""); setVariables({});
+      if (fileInput.current) fileInput.current.value = "";
+      setValue(""); setFile(null); setTemplateId(""); setVariables({});
     } catch { toast.error("שגיאת תקשורת. יש לבדוק אם ההודעה נשלחה לפני ניסיון נוסף"); }
     finally { setIsSending(false); }
   }
@@ -50,12 +59,20 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
     {disabled && <p className="text-sm text-muted-foreground">{disabledReason ?? "חלון המענה הסתיים — יש להשתמש בתבנית מאושרת."}</p>}
     <Button size="sm" variant="outline" onClick={loadTemplates}>{showTemplates ? "סגור תבניות" : "שליחת תבנית מאושרת"}</Button>
     {showTemplates ? <div className="space-y-2">
-      <select aria-label="תבנית הודעה" className="w-full rounded-md border bg-background p-2" value={templateId} onChange={(e) => { setTemplateId(e.target.value); setVariables({}); }}><option value="">בחר תבנית</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+      <select aria-label="תבנית הודעה" className="w-full rounded-md border bg-background p-2" value={templateId} onChange={(e) => { setTemplateId(e.target.value); setVariables({}); }}><option value="">בחר תבנית</option>{templates?.map((t) => <option key={t.id} value={t.id}>{t.name}{t.language ? ` (${t.language})` : ""}</option>)}</select>
       {templates?.length === 0 && <p className="text-sm text-muted-foreground">אין תבניות מאושרות לשליחה.</p>}
       {template && <><div className="whitespace-pre-wrap rounded bg-muted p-3 text-sm">{renderTemplate(template.body, variables)}</div>{templateParameterKeys(template.body).map((key) => <Input key={key} aria-label={`משתנה ${key}`} placeholder={`ערך עבור משתנה ${key}`} value={variables[key] ?? ""} onChange={(e) => setVariables({ ...variables, [key]: e.target.value })} maxLength={1024} />)}</>}
-    </div> : !disabled && <Textarea value={value} onChange={(e) => setValue(e.target.value)} maxLength={4096} onKeyDown={(e) => {
+    </div> : !disabled && <Textarea value={value} onChange={(e) => setValue(e.target.value)} maxLength={file ? 1024 : 4096} onKeyDown={(e) => {
       if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void handleSend(); }
     }} placeholder="הקלד הודעה..." rows={2} className="resize-none" />}
+    {!disabled && !showTemplates && <div className="flex items-center gap-2">
+      <label className="text-xs text-muted-foreground">צרף קובץ עד 4MB<Input aria-label="צירוף קובץ" type="file" ref={fileInput} disabled={isSending} accept={Object.keys(MEDIA_TYPES).join(",")} onChange={(e) => {
+        const selected = e.target.files?.[0];
+        if (selected && selected.size > MAX_UPLOAD_BYTES) { toast.error("מותר להעלות קובץ עד 4MB"); e.target.value = ""; return; }
+        setFile(selected ?? null);
+      }} /></label>
+      {file && <Button variant="ghost" size="sm" onClick={() => { setFile(null); if (fileInput.current) fileInput.current.value = ""; }}>הסר קובץ: {file.name}</Button>}
+    </div>}
     {(showTemplates || !disabled) && <Button onClick={handleSend} disabled={isSending || !canSend}><Send className="h-4 w-4" />{isSending ? "שולח..." : "שלח"}</Button>}
   </div>;
 }

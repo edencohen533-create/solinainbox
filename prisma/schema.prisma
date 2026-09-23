@@ -196,12 +196,14 @@ model Message {
   attachments       MessageAttachment[]
   templateId        String?
   template          Template?           @relation(fields: [templateId], references: [id])
+  inboundKey        String?             @unique
   providerMessageId String?
   deliveredAt       DateTime?
   readAt            DateTime?
   createdAt         DateTime            @default(now())
 
   @@index([conversationId, createdAt])
+  @@index([providerMessageId])
 }
 
 model MessageAttachment {
@@ -209,6 +211,7 @@ model MessageAttachment {
   messageId String
   message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   url       String
+  providerMediaId String?
   mimeType  String
   fileName  String?
   sizeBytes Int?
@@ -279,9 +282,12 @@ model CannedReply {
 
 model Template {
   id        String           @id @default(cuid())
-  name      String           @unique
+  name      String
   language  String           @default("he")
   category  TemplateCategory @default(UTILITY)
+  providerTemplateId String? @unique
+  providerAccountId String?
+  syncError String?
   body      String
   variables String[]         @default([])
   status    TemplateStatus   @default(APPROVED)
@@ -289,6 +295,9 @@ model Template {
   campaigns Campaign[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+
+  @@unique([name, language])
+  @@index([providerAccountId])
 }
 
 model AutomationRule {

@@ -1,6 +1,7 @@
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { getConversationForUser } from "@/server/services/conversation-service";
+import { getConversationForUser, buildConversationScope } from "@/server/services/conversation-service";
 import { createOutboundMessage, MessagePolicyError } from "@/server/services/message-service";
 
 const sendMessageSchema = z.object({
@@ -25,4 +26,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.error("Message send failed", error instanceof Error ? error.name : "Unknown");
     return Response.json({ error: "לא ניתן לאמת את השליחה. יש לבדוק את השיחה לפני ניסיון נוסף" }, { status: 502 });
   }
+}
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  const conversation = await prisma.conversation.findFirst({
+    where: { id, ...buildConversationScope(session) },
+    select: { lastInboundAt: true, messages: {
+      take: 100, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true, direction: true, type: true, body: true, status: true, createdAt: true, attachments: { select: { id: true, url: true, mimeType: true, fileName: true, sizeBytes: true } }, sentByUser: { select: { id: true, name: true } } },
+    } },
+  });
+  if (!conversation) return Response.json({ error: "Not found" }, { status: 404 });
+  return Response.json({ messages: conversation.messages.reverse(), lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
 }

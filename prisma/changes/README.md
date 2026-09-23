@@ -27,3 +27,21 @@ The verifier opens a transaction, applies the additive DDL only if `Campaign` do
 not yet exist, checks RLS, foreign keys, recipient uniqueness and claim behavior,
 and rolls everything back. It requires an existing admin, contact and approved
 local template (for example from the demo seed). It never calls a provider.
+
+## Inbox reliability and security follow-up
+
+After `campaigns.sql`, apply `inbox-reliability.sql` before deploying the updated
+code. It adds inbound idempotency keys, provider message indexes, attachment media
+IDs and template-sync metadata. Template uniqueness changes from name alone to
+(name, language). The updated seed script uses that composite key.
+
+```sh
+npx prisma db execute --schema prisma/schema.prisma --file prisma/changes/inbox-reliability.sql
+npx prisma generate
+```
+
+`security-baseline.sql` is idempotent and was applied to the live Solina Inbox
+database on 2026-09-23. For new installations, run it after `prisma db push`.
+It enables RLS on postgres-owned public tables and removes browser Data API grants,
+including default table and sequence grants for new objects. NextAuth + server
+Prisma remain the authorized access path. See the security remediation report.

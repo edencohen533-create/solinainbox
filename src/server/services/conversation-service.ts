@@ -53,7 +53,7 @@ export async function listConversations(session: Session, filter: ConversationLi
     orderBy: { lastMessageAt: "desc" },
     include: {
       contact: true,
-      assignedAgent: true,
+      assignedAgent: { select: { id: true, name: true } },
       tags: { include: { tag: true } },
       messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, direction: true } },
     },
@@ -66,24 +66,25 @@ export async function getConversationForUser(session: Session, conversationId: s
     where: { id: conversationId, ...buildConversationScope(session) },
     include: {
       contact: { include: { tags: { include: { tag: true } }, customFields: true } },
-      assignedAgent: true,
+      assignedAgent: { select: { id: true, name: true } },
       tags: { include: { tag: true } },
       messages: {
         orderBy: { createdAt: "asc" },
-        include: { attachments: true, sentByUser: true, template: true },
+        include: { attachments: true, sentByUser: { select: { id: true, name: true } }, template: true },
       },
-      notes: { orderBy: { createdAt: "desc" }, include: { author: true } },
+      notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { id: true, name: true } } } },
     },
   });
 
   return conversation;
 }
 
-export async function assignConversation(conversationId: string, agentId: string | null, actorUserId: string) {
-  const conversation = await prisma.conversation.update({
-    where: { id: conversationId },
-    data: { assignedAgentId: agentId },
+export async function assignConversation(conversationId: string, agentId: string | null, actorUserId: string, scope: Prisma.ConversationWhereInput = {}) {
+  const result = await prisma.conversation.updateMany({
+    where: { id: conversationId, ...scope }, data: { assignedAgentId: agentId },
   });
+  if (!result.count) return null;
+  const conversation = await prisma.conversation.findUniqueOrThrow({ where: { id: conversationId } });
 
   await prisma.auditLog.create({
     data: {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ConversationStatus } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getConversationForUser } from "@/server/services/conversation-service";
+import { buildConversationScope, getConversationForUser } from "@/server/services/conversation-service";
 import { writeAuditLog } from "@/lib/audit";
 import { publishConversationUpdated } from "@/lib/realtime/publish";
 
@@ -33,12 +33,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const parsed = patchSchema.safeParse(await request.json());
+  const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const conversation = await prisma.conversation.update({ where: { id }, data: parsed.data });
+  const result = await prisma.conversation.updateMany({ where: { id, ...buildConversationScope(session) }, data: parsed.data });
+  if (!result.count) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const conversation = await prisma.conversation.findUniqueOrThrow({ where: { id } });
 
   await writeAuditLog({
     actorUserId: session.user.id,

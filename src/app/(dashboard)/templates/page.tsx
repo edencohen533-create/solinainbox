@@ -2,7 +2,8 @@ import { listTemplates } from "@/server/services/template-service";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TemplatePreviewDialog } from "@/components/templates/template-preview-dialog";
-import { EmptyState } from "@/components/shared/empty-state";
+import { campaignActor } from "@/lib/campaign-auth";
+import { SyncTemplatesButton } from "@/components/templates/sync-templates-button";
 
 const CATEGORY_LABELS: Record<string, string> = {
   MARKETING: "שיווק",
@@ -18,15 +19,12 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function TemplatesPage() {
-  const templates = await listTemplates();
-
-  if (templates.length === 0) {
-    return <EmptyState title="אין תבניות עדיין" />;
-  }
+  const [templates, actor] = await Promise.all([listTemplates(), campaignActor()]);
 
   return (
     <div className="p-6">
-      <h1 className="mb-4 text-lg font-semibold">תבניות הודעה</h1>
+      <div className="mb-4 flex items-center justify-between gap-3"><h1 className="text-lg font-semibold">תבניות הודעה</h1>{actor && <SyncTemplatesButton />}</div>
+      {!templates.length && <p className="mb-4 text-muted-foreground">אין תבניות עדיין. חבר את חשבון Meta וסנכרן את התבניות המאושרות.</p>}
       <div className="overflow-auto rounded-md border">
         <Table>
           <TableHeader>
@@ -42,7 +40,7 @@ export default async function TemplatesPage() {
           <TableBody>
             {templates.map((template) => (
               <TableRow key={template.id}>
-                <TableCell className="font-medium">{template.name}</TableCell>
+                <TableCell className="font-medium">{template.name}{template.syncError && <p className="mt-1 max-w-xs text-xs text-amber-700">{template.syncError}</p>}</TableCell>
                 <TableCell>{template.language === "he" ? "עברית" : template.language}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{CATEGORY_LABELS[template.category] ?? template.category}</Badge>
