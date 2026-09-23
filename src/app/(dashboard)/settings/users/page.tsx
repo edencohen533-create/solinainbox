@@ -21,7 +21,7 @@ export default async function UsersSettingsPage() {
         <h1 className="text-lg font-semibold">ניהול צוות</h1>
         {canManage && <NewUserDialog />}
       </div>
-      <UserTable users={users} />
+      <UserTable users={users} canManage={canManage} />
     </div>
   );
 }

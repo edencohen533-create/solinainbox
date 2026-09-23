@@ -31,5 +31,5 @@ export function createSupabaseBrowserClient(): SupabaseClient {
   if (!url || !key) {
     throw new Error("Supabase browser env vars are not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)");
   }
-  return createClient(url, key);
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 }

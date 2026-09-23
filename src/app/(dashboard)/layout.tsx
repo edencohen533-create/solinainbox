@@ -11,11 +11,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-dvh w-full flex-col overflow-hidden lg:flex-row">
       <RightNav role={session.user.role} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar name={session.user.name ?? session.user.email ?? ""} role={session.user.role} />
-        <main className="flex-1 overflow-hidden">{children}</main>
+        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   );

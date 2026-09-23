@@ -66,3 +66,8 @@ describe("Meta media payloads", () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 });
+
+it("does not report success when Meta returns 200 without a provider message ID", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+  await expect(new MetaWhatsAppProvider(config).sendMessage({ conversationId: "c", to: "+972501234567", type: "TEXT", body: "hello" })).rejects.toThrow("outcome unknown");
+});

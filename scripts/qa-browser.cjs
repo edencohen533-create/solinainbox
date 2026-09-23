@@ -1,0 +1,100 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const baseURL = 'http://localhost:3101';
+const artifactDir = '/tmp/solina-qa-browser';
+fs.mkdirSync(artifactDir, { recursive: true });
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const errors = [];
+  async function login(user) {
+    const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+    const page = await context.newPage(); page.setDefaultTimeout(90000); page.setDefaultNavigationTimeout(90000);
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('/login');
+    await page.getByLabel('אימייל').fill(`${user}@example.test`);
+    await page.getByLabel('סיסמה', { exact: true }).fill('QA-only-Password-2026!');
+    await page.getByRole('button', { name: 'התחברות', exact: true }).click();
+    await page.waitForURL('**/inbox');
+    return { page, context, request: context.request };
+  }
+  try {
+    const admin = await login('qa-admin'); console.log('PASS browser login ADMIN');
+    const created = await admin.request.post('/api/contacts', { data: { name: 'QA browser lead', phone: '+97250' + String(Date.now()).slice(-7), consentStatus: 'OPTED_IN', tagIds: [] } });
+    assert.equal(created.status(), 201);
+    const contactId = (await created.json()).contact.id;
+    await admin.page.goto(`/contacts/${contactId}`);
+    await admin.page.getByRole('button', { name: 'פתח שיחה ושייך לנציג' }).click();
+    await admin.page.waitForURL('**/inbox/*');
+    const id = admin.page.url().split('/').at(-1);
+    await admin.page.getByRole('combobox').nth(1).click();
+    await admin.page.getByRole('option', { name: 'qa-agent-a', exact: true }).click();
+    await admin.page.getByText('השיוך עודכן', { exact: true }).waitFor();
+    console.log('PASS browser start lead conversation and assign representative');
+    await admin.page.goto('/templates');
+    const a = await login('qa-agent-a');
+    await a.page.goto('/templates');
+    const b = await login('qa-agent-b');
+    await b.page.goto('/templates');
+    assert.equal((await b.request.get(`/api/conversations/${id}/messages`)).status(), 404);
+    assert.equal((await b.request.get(`/api/contacts/${contactId}`)).status(), 404);
+    assert.equal((await b.request.patch(`/api/conversations/${id}/assign`, { data: { agentId: 'qa-agent-b' } })).status(), 404);
+    assert.equal((await a.request.post('/api/templates', { data: {} })).status(), 403);
+    assert.equal((await a.request.get('/api/campaigns')).status(), 403);
+    console.log('PASS authenticated cross-agent access and management restrictions');
+    await a.page.goto(`/inbox/${id}`);
+    assert.equal(await a.page.getByPlaceholder('הקלד הודעה...').count(), 0);
+    await a.page.getByRole('button', { name: 'שליחת תבנית מאושרת' }).click();
+    await a.page.getByRole('combobox', { name: 'תבנית הודעה' }).selectOption('qa-template');
+    await a.page.getByRole('textbox', { name: 'משתנה 1', exact: true }).fill('לקוח בדיקה');
+    const templateSent = a.page.waitForResponse((r) => r.url().endsWith(`/api/conversations/${id}/messages`) && r.request().method() === 'POST');
+    await a.page.getByRole('button', { name: 'שלח', exact: true }).click();
+    assert.equal((await templateSent).status(), 200);
+    console.log('PASS approved template UI outside service window (mock delivery)');
+    assert.equal((await admin.request.post('/api/demo/simulate-inbound', { data: { contactId, body: 'שלום מהלקוח לבדיקת דפדפן', type: 'TEXT' } })).status(), 200);
+    await a.page.getByRole('button', { name: 'סגור תבניות' }).click();
+    await a.page.getByPlaceholder('הקלד הודעה...').fill('תשובת נציג בבדיקת דפדפן');
+    const textSent = a.page.waitForResponse((r) => r.url().endsWith(`/api/conversations/${id}/messages`) && r.request().method() === 'POST');
+    await a.page.getByRole('button', { name: 'שלח', exact: true }).click();
+    assert.equal((await textSent).status(), 200);
+    await a.page.getByText('תשובת נציג בבדיקת דפדפן', { exact: true }).waitFor();
+    await a.page.screenshot({ path: `${artifactDir}/inbox-desktop.png`, fullPage: true, animations: "disabled" });
+    console.log('PASS inbound polling enables service reply and outbound message renders');
+    await admin.page.goto('/templates');
+    await admin.page.getByRole('button', { name: 'תבנית חדשה לאישור' }).click();
+    await admin.page.getByRole('textbox', { name: 'שם התבנית', exact: true }).fill('browser_template');
+    await admin.page.getByRole('textbox', { name: 'תוכן התבנית', exact: true }).fill('שלום {{1}}, תודה שפנית אלינו.');
+    await admin.page.getByRole('textbox', { name: 'דוגמה למשתנה 1', exact: true }).fill('ישראל');
+    await admin.page.screenshot({ path: `${artifactDir}/template-submission.png`, fullPage: true, animations: "disabled" });
+    const submission = admin.page.waitForResponse((r) => r.url().endsWith('/api/templates') && r.request().method() === 'POST');
+    await admin.page.getByRole('button', { name: 'הגש לאישור Meta' }).click();
+    assert.equal((await submission).status(), 502);
+    await admin.page.getByText('יש לחבר חשבון Meta ולהגדיר Business Account ID לפני הגשה', { exact: true }).waitFor();
+    console.log('PASS template submission form with examples; mock mode cannot submit to Meta');
+    await admin.page.goto('/campaigns');
+    await admin.page.getByText('QA campaign', { exact: true }).waitFor();
+    await admin.page.screenshot({ path: `${artifactDir}/campaigns-desktop.png`, fullPage: true, animations: "disabled" });
+    await admin.page.setViewportSize({ width: 390, height: 844 });
+    await admin.page.screenshot({ path: `${artifactDir}/campaigns-mobile.png`, fullPage: true, animations: "disabled" });
+    assert.equal(await admin.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    console.log('PASS campaigns render on desktop and mobile without page overflow');
+    await admin.page.goto('/settings/whatsapp');
+    assert.equal((await admin.request.post('/api/settings/whatsapp/check')).status(), 409);
+    await admin.page.screenshot({ path: `${artifactDir}/meta-settings-mobile.png`, fullPage: true, animations: "disabled" });
+    await admin.page.setViewportSize({ width: 1440, height: 1000 });
+    await admin.page.goto('/settings/users');
+    assert.equal((await admin.request.patch('/api/settings/users/qa-agent-b', { data: { password: 'QA-replaced-password-2026!' } })).status(), 200);
+    const revoked = await b.request.get('/api/auth/session');
+    assert.ok(!(await revoked.json())?.user);
+    assert.equal((await admin.request.patch('/api/settings/users/qa-agent-b', { data: { password: 'QA-only-Password-2026!' } })).status(), 200);
+    console.log('PASS password reset revokes existing sessions');
+    assert.deepEqual(errors, []);
+    console.log('PASS no browser runtime errors; screenshots saved to ' + artifactDir);
+  } catch (error) {
+    for (const [i, context] of browser.contexts().entries()) {
+      for (const [j, page] of context.pages().entries()) await page.screenshot({ path: `${artifactDir}/failure-${i}-${j}.png`, fullPage: true, animations: "disabled" }).catch(() => {});
+    }
+    throw error;
+  } finally { await browser.close(); }
+})().catch((error) => { console.error(error.name, error.message.split("Call log:")[0]); process.exitCode = 1; });

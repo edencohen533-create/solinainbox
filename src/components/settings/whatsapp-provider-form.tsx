@@ -27,6 +27,8 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
   const [webhookVerifyToken, setWebhookVerifyToken] = useState("");
   const [appSecret, setAppSecret] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [report, setReport] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
 
   const isMetaActive = summary.provider === "meta_whatsapp_cloud_api";
@@ -45,9 +47,9 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
         return;
       }
       toast.success("חיבור Meta WhatsApp הופעל");
-      setSummary({ provider: "meta_whatsapp_cloud_api", phoneNumberId, accessTokenMasked: "••••", hasAppSecret: Boolean(appSecret) });
+      setSummary({ provider: "meta_whatsapp_cloud_api", phoneNumberId, businessAccountId, accessTokenMasked: "••••", hasAppSecret: Boolean(appSecret) });
       router.refresh();
-    } finally {
+    } catch { toast.error("הבקשה נכשלה. בדוק את החיבור ונסה שוב"); } finally {
       setIsSubmitting(false);
     }
   }
@@ -63,7 +65,7 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
       toast.success("עברת לספק המדומה (Mock)");
       setSummary({ provider: "mock" });
       router.refresh();
-    } finally {
+    } catch { toast.error("הבקשה נכשלה. בדוק את החיבור ונסה שוב"); } finally {
       setIsSwitching(false);
     }
   }
@@ -82,12 +84,21 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
         )}
       </div>
 
+      {isMetaActive && <div className="space-y-2"><Button variant="outline" disabled={checking} onClick={async () => {
+        setChecking(true);
+        try {
+          const res = await fetch("/api/settings/whatsapp/check", { method: "POST" });
+          const data = await res.json();
+          setReport(res.ok ? `הגישה למספר ולתבניות תקינה. ${data.hasSubscribedApp ? "יש אפליקציה רשומה לקבלת אירועים; יש לוודא ב־Meta שזו האפליקציה שלך ולבדוק הודעה נכנסת." : "חסרה הרשמת אפליקציה: יש להגדיר subscribed_apps ב־Meta כדי לקבל הודעות."}` : data.error);
+        } catch { setReport("בדיקת החיבור נכשלה"); }
+        finally { setChecking(false); }
+      }}>{checking ? "בודק..." : "בדוק חיבור Meta"}</Button>{report && <p role="status" className="text-sm">{report}</p>}</div>}
       <Separator />
 
       <div className="space-y-2">
         <Label>Webhook Callback URL</Label>
         <p className="text-xs text-muted-foreground">
-          הדבק כתובת זו ב-Meta App Dashboard תחת WhatsApp → Configuration → Webhook, יחד עם ה-Verify Token שתגדיר למטה.
+          הדבק כתובת זו ב-Meta App Dashboard תחת WhatsApp → Configuration → Webhook, יחד עם ה-Verify Token שתגדיר למטה. יש להירשם לשדה messages ולחבר את האפליקציה לחשבון WhatsApp דרך subscribed_apps. השתמש ב־Token קבוע עם הרשאות whatsapp_business_management ו־whatsapp_business_messaging.
         </p>
         <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
           <Ltr>{webhookUrl}</Ltr>
@@ -112,7 +123,7 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
           <Input dir="ltr" className="text-left" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label>WhatsApp Business Account ID (לסנכרון תבניות)</Label>
+          <Label>WhatsApp Business Account ID (חובה)</Label>
           <Input dir="ltr" className="text-left" value={businessAccountId} onChange={(e) => setBusinessAccountId(e.target.value)} />
         </div>
         <div className="space-y-1.5">
@@ -134,7 +145,7 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
           <Input dir="ltr" className="text-left" type="password" value={appSecret} onChange={(e) => setAppSecret(e.target.value)} />
         </div>
 
-        <Button onClick={handleActivateMeta} disabled={isSubmitting || !accessToken || !phoneNumberId || !webhookVerifyToken || !appSecret}>
+        <Button onClick={handleActivateMeta} disabled={isSubmitting || !accessToken || !phoneNumberId || !businessAccountId || !webhookVerifyToken || !appSecret}>
           {isSubmitting ? "מפעיל..." : "שמור והפעל"}
         </Button>
       </div>

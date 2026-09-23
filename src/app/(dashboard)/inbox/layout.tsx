@@ -15,7 +15,7 @@ export default async function InboxLayout({ children }: { children: React.ReactN
   return (
     <div className="flex h-full">
       <ConversationListPane initialConversations={initialConversations} />
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1 overflow-hidden">{children}</div>
     </div>
   );
 }

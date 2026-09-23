@@ -26,7 +26,7 @@ export function ContactProfilePanel({ contact }: { contact: ContactProfileData }
     .join("");
 
   return (
-    <div className="flex h-full w-72 flex-col gap-4 overflow-y-auto border-s p-4">
+    <div className="hidden h-full w-72 shrink-0 flex-col xl:flex gap-4 overflow-y-auto border-s p-4">
       <div className="flex flex-col items-center gap-2 text-center">
         <Avatar className="h-16 w-16">
           <AvatarFallback className="text-lg">{initials}</AvatarFallback>

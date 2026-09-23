@@ -1,3 +1,6 @@
+import { auth } from "@/lib/auth";
+import { hasRole, ROLES_ADMIN_MANAGER } from "@/lib/auth-guards";
+import { AccessDenied } from "@/components/shared/access-denied";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
@@ -8,9 +11,10 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 
 export default async function AutomationsPage() {
+  if (!hasRole(await auth(), ROLES_ADMIN_MANAGER)) return <AccessDenied />;
   const [rules, agents, cannedReplies, templates] = await Promise.all([
     listRules(),
-    prisma.user.findMany({ where: { role: { in: [Role.AGENT, Role.MANAGER] } }, select: { id: true, name: true } }),
+    prisma.user.findMany({ where: { role: { in: [Role.AGENT, Role.MANAGER] }, isActive: true }, select: { id: true, name: true } }),
     prisma.cannedReply.findMany({ select: { id: true, title: true } }),
     prisma.template.findMany({ select: { id: true, name: true } }),
   ]);

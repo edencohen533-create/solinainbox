@@ -70,7 +70,7 @@ export function ChatPanel({
   if (accessRevoked) return <p className="p-4">אין הרשאה להציג שיחה זו. ייתכן שהיא הועברה לנציג אחר.</p>;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto p-4">
         {messages.map((message, index) => {
           const prev = messages[index - 1];

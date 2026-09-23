@@ -1,3 +1,6 @@
+import { ContactConsentEditor } from "@/components/contacts/contact-consent-editor";
+import { auth } from "@/lib/auth";
+import { StartConversationButton } from "@/components/contacts/start-conversation-button";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getContact } from "@/server/services/contact-service";
@@ -24,7 +27,9 @@ export default async function ContactDetailPage({
   params: Promise<{ contactId: string }>;
 }) {
   const { contactId } = await params;
-  const contact = await getContact(contactId);
+  const session = await auth();
+  if (!session?.user) notFound();
+  const contact = await getContact(contactId, session);
 
   if (!contact) {
     notFound();
@@ -63,6 +68,8 @@ export default async function ContactDetailPage({
         </div>
       )}
 
+      <ContactConsentEditor contactId={contact.id} initialStatus={contact.consentStatus} />
+      <StartConversationButton contactId={contact.id} disabled={contact.consentStatus === "OPTED_OUT"} />
       <Separator />
 
       <div>

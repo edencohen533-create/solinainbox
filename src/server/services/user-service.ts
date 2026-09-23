@@ -51,3 +51,10 @@ export async function setUserActive(id: string, isActive: boolean, actorUserId: 
 
   return user;
 }
+
+export async function resetUserPassword(id: string, password: string, actorUserId: string) {
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await prisma.user.update({ where: { id }, data: { passwordHash }, select: publicUserFields });
+  await writeAuditLog({ actorUserId, action: "user.password_changed", entityType: "User", entityId: id });
+  return user;
+}

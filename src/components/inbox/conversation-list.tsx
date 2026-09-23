@@ -36,14 +36,20 @@ export function ConversationListPane({ initialConversations }: { initialConversa
   const [conversations, setConversations] = useState<ConversationListItem[] | null>(initialConversations);
 
   const filter = searchParams.get("filter");
+  const search = searchParams.get("search") ?? "";
   const statusParam = filter && ["open", "pending", "resolved", "all", "mine", "unassigned"].includes(filter) ? filter : undefined;
 
   // Fetches the list from the server and syncs it into state — this is the
   // documented React pattern for an effect that synchronizes with an
   // external system (a network request), not a derived-state anti-pattern,
   // so the set-state-in-effect lint rule's false positive is suppressed below.
+  const fetching = useRef(false);
   const fetchConversations = useCallback(async () => {
+    if (fetching.current) return;
+    fetching.current = true;
+    try {
     const params = new URLSearchParams();
+    if (search) params.set("search", search);
     if (statusParam === "open") params.set("status", "OPEN");
     if (statusParam === "pending") params.set("status", "PENDING");
     if (statusParam === "resolved") params.set("status", "RESOLVED");
@@ -55,20 +61,21 @@ export function ConversationListPane({ initialConversations }: { initialConversa
     if (!res.ok) return;
     const data = await res.json();
     setConversations(data.conversations);
-  }, [statusParam]);
+    } finally { fetching.current = false; }
+  }, [statusParam, search]);
 
   // Skip the redundant initial fetch when unfiltered — the server already
   // rendered that exact data into `initialConversations`. Any other filter
   // (or a later change back to unfiltered) still fetches normally.
   const skippedInitialFetch = useRef(false);
   useEffect(() => {
-    if (!skippedInitialFetch.current && statusParam === undefined) {
+    if (!skippedInitialFetch.current && statusParam === undefined && !search) {
       skippedInitialFetch.current = true;
       return;
     }
     skippedInitialFetch.current = true;
     void fetchConversations().catch(() => {});
-  }, [fetchConversations, statusParam]);
+  }, [fetchConversations, statusParam, search]);
 
   useRealtimeChannel(
     INBOX_CHANNEL,
@@ -78,7 +85,7 @@ export function ConversationListPane({ initialConversations }: { initialConversa
   );
 
   return (
-    <div className="flex h-full w-80 flex-col overflow-hidden border-e">
+    <div className={cn("h-full w-full shrink-0 flex-col overflow-hidden border-e md:flex md:w-80", activeId ? "hidden" : "flex")}>
       <div className="flex-1 overflow-y-auto">
         {conversations === null && (
           <div className="space-y-2 p-3">

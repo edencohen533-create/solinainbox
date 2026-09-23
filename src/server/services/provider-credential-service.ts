@@ -1,3 +1,6 @@
+import bcrypt from "bcryptjs";
+import { MetaConnectionError } from "./meta-connection-service";
+import { checkMetaConnection } from "./meta-connection-service";
 import { prisma } from "@/lib/prisma";
 import type { MetaProviderConfigInput } from "@/lib/validation/provider";
 import { writeAuditLog } from "@/lib/audit";
@@ -20,17 +23,19 @@ export async function getActiveProviderSummary() {
 }
 
 export async function activateMetaProvider(input: MetaProviderConfigInput, actorUserId: string) {
-  await prisma.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
-
-  const existing = await prisma.providerCredential.findFirst({ where: { provider: "meta_whatsapp_cloud_api" } });
-  const credential = existing
-    ? await prisma.providerCredential.update({
-        where: { id: existing.id },
-        data: { config: input, isActive: true },
-      })
-    : await prisma.providerCredential.create({
-        data: { provider: "meta_whatsapp_cloud_api", config: input, isActive: true },
-      });
+  const users = await prisma.user.findMany({ where: { isActive: true }, select: { passwordHash: true } });
+  for (const user of users) {
+    if (await bcrypt.compare("Password123!", user.passwordHash)) throw new MetaConnectionError("לפני חיבור Meta יש להחליף את סיסמאות הדמו או להשבית את חשבונות ההדגמה בהגדרות המשתמשים");
+  }
+  await checkMetaConnection(input);
+  const credential = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(774291)`;
+    await tx.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    const existing = await tx.providerCredential.findFirst({ where: { provider: "meta_whatsapp_cloud_api" } });
+    return existing
+      ? tx.providerCredential.update({ where: { id: existing.id }, data: { config: input, isActive: true } })
+      : tx.providerCredential.create({ data: { provider: "meta_whatsapp_cloud_api", config: input, isActive: true } });
+  });
 
   await writeAuditLog({
     actorUserId,
@@ -44,7 +49,10 @@ export async function activateMetaProvider(input: MetaProviderConfigInput, actor
 }
 
 export async function activateMockProvider(actorUserId: string) {
-  await prisma.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(774291)`;
+    await tx.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
+  });
 
   await writeAuditLog({
     actorUserId,
