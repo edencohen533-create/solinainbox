@@ -38,6 +38,7 @@ const ACTION_LABELS: Record<AutomationActionType, string> = {
 interface Option {
   id: string;
   label: string;
+  variables?: string[];
 }
 
 export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Option[]; cannedReplies: Option[]; templates: Option[] }) {
@@ -54,6 +55,7 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
   const [status, setStatus] = useState("OPEN");
   const [noteBody, setNoteBody] = useState("");
   const [cannedReplyId, setCannedReplyId] = useState("");
+  const [variables, setVariables] = useState<Record<string, string>>({});
   const [templateId, setTemplateId] = useState("");
 
   function buildTriggerConfig(): Record<string, unknown> {
@@ -75,7 +77,7 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
       case AutomationActionType.SEND_CANNED_REPLY:
         return { cannedReplyId };
       case AutomationActionType.SEND_TEMPLATE:
-        return { templateId };
+        return { templateId, variables };
       default:
         return {};
     }
@@ -232,10 +234,11 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
               </Select>
             </div>
           )}
+          {actionType === AutomationActionType.SEND_TEMPLATE && <div className="space-y-2">{templates.find((t) => t.id === templateId)?.variables?.map((key) => <label key={key} className="block text-sm">משתנה {key}<Input value={variables[key] ?? ""} onChange={(e) => setVariables({ ...variables, [key]: e.target.value })} placeholder="ניתן להשתמש ב־{name} לשם הלקוח" maxLength={1024} /></label>)}</div>}
           {actionType === AutomationActionType.SEND_TEMPLATE && (
             <div className="space-y-1.5">
               <Label>תבנית</Label>
-              <Select value={templateId} onValueChange={(v) => v && setTemplateId(v)}>
+              <Select value={templateId} onValueChange={(v) => { if (v) { setTemplateId(v); setVariables({}); } }}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="בחר..." />
                 </SelectTrigger>

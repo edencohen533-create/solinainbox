@@ -6,5 +6,5 @@ export default async function ContactsPage() {
   const session = await auth();
   if (!session?.user) return null;
   const contacts = await listContacts(session);
-  return <ContactTable key={contacts.map((contact) => contact.id).join(",")} initialContacts={contacts} />;
+  return <ContactTable key={contacts.map((contact) => contact.id).join(",")} initialContacts={contacts} canExport={session.user.role !== "AGENT"} />;
 }

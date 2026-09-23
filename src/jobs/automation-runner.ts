@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { AutomationRunStatus, type Prisma } from "@prisma/client";
+import { AutomationRunStatus, AutomationActionType, type Prisma } from "@prisma/client";
 import { executeAction } from "@/server/services/automation-service";
 
 /**
@@ -13,6 +13,7 @@ export async function processDueAutomationRuns(): Promise<{ processed: number }>
   const due = await prisma.automationRun.findMany({
     where: { status: AutomationRunStatus.PENDING, scheduledFor: { lte: new Date() } },
     take: 25,
+    orderBy: [{ scheduledFor: "asc" }, { id: "asc" }],
   });
 
   let processed = 0;
@@ -20,7 +21,7 @@ export async function processDueAutomationRuns(): Promise<{ processed: number }>
   for (const run of due) {
     const claimed = await prisma.automationRun.updateMany({
       where: { id: run.id, status: AutomationRunStatus.PENDING },
-      data: { status: AutomationRunStatus.RUNNING },
+      data: { status: AutomationRunStatus.RUNNING, attempts: { increment: 1 } },
     });
     if (claimed.count === 0) continue; // claimed by a concurrent invocation
 
@@ -36,7 +37,9 @@ export async function processDueAutomationRuns(): Promise<{ processed: number }>
     }
 
     const conversation = await prisma.conversation.findUnique({ where: { id: run.conversationId } });
-    const stillUnanswered =
+    const snapshot = (run.triggerPayload ?? {}) as Record<string, unknown>;
+    const sameInbound = typeof snapshot.inboundAt !== "string" || conversation?.lastInboundAt?.toISOString() === snapshot.inboundAt;
+    const stillUnanswered = sameInbound &&
       conversation?.lastInboundAt &&
       (!conversation.lastMessageAt || conversation.lastMessageAt.getTime() <= conversation.lastInboundAt.getTime());
 
@@ -53,8 +56,12 @@ export async function processDueAutomationRuns(): Promise<{ processed: number }>
     }
 
     try {
-      const result = await executeAction(rule.actionType, rule.actionConfig as Record<string, unknown>, {
+      const result = await executeAction(
+        typeof snapshot.actionType === "string" && Object.values(AutomationActionType).includes(snapshot.actionType as AutomationActionType)
+          ? snapshot.actionType as AutomationActionType : rule.actionType,
+        (snapshot.actionConfig ?? rule.actionConfig) as Record<string, unknown>, {
         conversationId: run.conversationId,
+        runId: run.id,
       });
       await prisma.automationRun.update({
         where: { id: run.id },

@@ -1,3 +1,5 @@
+import { ContactDetailsEditor } from "@/components/contacts/contact-details-editor";
+import { prisma } from "@/lib/prisma";
 import { ContactConsentEditor } from "@/components/contacts/contact-consent-editor";
 import { auth } from "@/lib/auth";
 import { StartConversationButton } from "@/components/contacts/start-conversation-button";
@@ -35,6 +37,8 @@ export default async function ContactDetailPage({
     notFound();
   }
 
+  const tags = await prisma.tag.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div>
@@ -68,7 +72,8 @@ export default async function ContactDetailPage({
         </div>
       )}
 
-      <ContactConsentEditor contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
+      <ContactDetailsEditor key={`${contact.id}:${contact.updatedAt.toISOString()}`} contact={contact} tags={tags} />
+      <ContactConsentEditor key={contact.id} contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
       <StartConversationButton contactId={contact.id} disabled={contact.consentStatus === "OPTED_OUT"} />
       <Separator />
 

@@ -36,6 +36,7 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
     },
     conversationTag: { upsert: vi.fn() },
+    cannedReply: { findUnique: vi.fn() },
     note: { create: (...a: unknown[]) => noteCreate(...a) },
     auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
     user: { findFirst: vi.fn().mockResolvedValue({ id: "admin-1" }) },
@@ -218,5 +219,41 @@ describe("processDueAutomationRuns (delayed NO_REPLY_TIMEOUT re-validation)", ()
 
     expect(result.processed).toBe(0);
     expect(automationRuleFindUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("automation delivery evidence and snapshots", () => {
+  beforeEach(resetAll);
+  it("records a provider rejection as a failed automation, not completed", async () => {
+    const { createOutboundMessage } = await import("@/server/services/message-service");
+    const { runRule } = await import("@/server/services/automation-service");
+    vi.mocked(createOutboundMessage).mockResolvedValueOnce({ message: { id: "failed-message", status: "FAILED", errorReason: "token revoked" } } as never);
+    const { prisma } = await import("@/lib/prisma");
+    vi.spyOn(prisma.cannedReply, "findUnique").mockResolvedValueOnce({ body: "reply" } as never);
+    automationRuleFindUniqueOrThrow.mockResolvedValue({ id: "r", isActive: true, actionType: "SEND_CANNED_REPLY", actionConfig: { cannedReplyId: "reply" } });
+    automationRunCreate.mockResolvedValue({ id: "run-rejected" });
+    await runRule("r", { conversationId: "conv" });
+    expect(automationRunUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED", error: "token revoked" }) }));
+    expect(createOutboundMessage).toHaveBeenCalledWith(expect.objectContaining({ requestKey: "automation:run-rejected", automated: true }));
+  });
+  it("does not use a later inbound message to fire an old no-reply timer", async () => {
+    automationRunFindMany.mockResolvedValue([{ id: "old", ruleId: "r", conversationId: "conv", triggerPayload: { inboundAt: "2026-09-23T08:00:00.000Z" } }]);
+    automationRunUpdateMany.mockResolvedValue({ count: 1 });
+    automationRuleFindUnique.mockResolvedValue({ isActive: true, actionType: "ADD_INTERNAL_NOTE", actionConfig: { body: "old" } });
+    const time = new Date("2026-09-23T08:10:00Z");
+    conversationFindUnique.mockResolvedValue({ lastInboundAt: time, lastMessageAt: time });
+    await processDueAutomationRuns();
+    expect(noteCreate).not.toHaveBeenCalled();
+    expect(automationRunUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ result: { skipped: expect.any(String) } }) }));
+  });
+  it("executes the scheduled action snapshot even if the active rule changed", async () => {
+    const time = new Date("2026-09-23T08:00:00Z");
+    automationRunFindMany.mockResolvedValue([{ id: "snapshot", ruleId: "r", conversationId: "conv", triggerPayload: { inboundAt: time.toISOString(), actionType: "ADD_INTERNAL_NOTE", actionConfig: { body: "original" } } }]);
+    automationRunUpdateMany.mockResolvedValue({ count: 1 });
+    automationRuleFindUnique.mockResolvedValue({ isActive: true, actionType: "ADD_INTERNAL_NOTE", actionConfig: { body: "edited" } });
+    conversationFindUnique.mockResolvedValue({ lastInboundAt: time, lastMessageAt: time });
+    noteCreate.mockResolvedValue({ id: "note" });
+    await processDueAutomationRuns();
+    expect(noteCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ body: "original" }) });
   });
 });

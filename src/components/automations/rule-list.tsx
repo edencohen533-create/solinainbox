@@ -49,6 +49,9 @@ export function RuleList({ rules: initialRules }: { rules: Rule[] }) {
         setRules((prev) => prev.map((r) => (r.id === id ? { ...r, isActive: !isActive } : r)));
         toast.error("שגיאה בעדכון החוק");
       }
+    } catch {
+      setRules((prev) => prev.map((r) => r.id === id ? { ...r, isActive: !isActive } : r));
+      toast.error("העדכון נכשל. יש לבדוק את החיבור ולנסות שוב");
     } finally {
       setPending(null);
     }
@@ -78,7 +81,7 @@ export function RuleList({ rules: initialRules }: { rules: Rule[] }) {
               <TableCell>
                 <Switch
                   checked={rule.isActive}
-                  disabled={pending === rule.id}
+                  disabled={pending !== null}
                   onCheckedChange={(checked) => toggleActive(rule.id, checked)}
                 />
               </TableCell>

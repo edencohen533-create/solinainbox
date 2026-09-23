@@ -25,6 +25,7 @@ const selectClass = "w-full rounded-md border bg-background p-2 text-sm";
 export function CampaignDashboard({ initialCampaigns, lists, contacts, templates, mock }: Props) {
   const router = useRouter();
   const [review, setReview] = useState<{ campaign: Campaign; action: string; eligible: number; totalQueued: number; exclusions: Record<string, number>; blockers: string[]; samples: { name: string; body: string }[]; sender: string } | null>(null);
+  const [campaignSearch, setCampaignSearch] = useState("");
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [tab, setTab] = useState<"campaigns" | "lists">("campaigns");
   const [busy, setBusy] = useState(false);
@@ -121,7 +122,8 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
         <div className="space-y-3"><h3 className="text-sm font-medium">תצוגה מקדימה</h3><div className="min-h-32 whitespace-pre-wrap rounded-xl bg-emerald-50 p-4 text-emerald-950">{template ? renderTemplate(template.body, variables).replaceAll("{name}", "ישראל") : "בחר תבנית להצגת ההודעה"}</div><p className="text-sm text-muted-foreground">הנמענים נשמרים בעת יצירת הטיוטה. הסכמה לדיוור נבדקת מחדש בזמן השליחה. עצירה אינה מבטלת הודעה שכבר נשלחת.</p></div>
       </section>
       <div className="space-y-3"><h2 className="font-semibold">הקמפיינים שלי</h2>{!campaigns.length && <p className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">עדיין אין קמפיינים. בחר רשימה ותבנית כדי ליצור את הראשון.</p>}
-        {campaigns.map((campaign) => <article key={campaign.id} className="space-y-3 rounded-xl border p-5">
+        <Input aria-label="חיפוש בקמפיינים האחרונים" placeholder="חיפוש בשם קמפיין, רשימה או תבנית (100 אחרונים)" value={campaignSearch} onChange={(e) => setCampaignSearch(e.target.value)} />
+        {campaigns.filter((c) => `${c.name} ${c.list.name} ${c.template.name}`.toLowerCase().includes(campaignSearch.toLowerCase())).map((campaign) => <article key={campaign.id} className="space-y-3 rounded-xl border p-5">
           <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{campaign.name}</h3><p className="text-sm text-muted-foreground">{campaign.list.name} · {campaign.template.name} · {campaign._count.recipients} נמענים</p></div><span className="rounded-full bg-secondary px-3 py-1 text-sm">{campaignStatusLabels[campaign.status]}</span></div>
           {campaign.scheduledAt && <p className="text-sm">מועד שליחה: {new Date(campaign.scheduledAt).toLocaleString("he-IL")}</p>}
           <div className="flex flex-wrap gap-4 text-sm">{Object.entries(campaign.counts).map(([status, count]) => <span key={status}>{recipientStatusLabels[status]}: <strong>{count}</strong></span>)}</div>
@@ -130,6 +132,7 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
             {["RUNNING", "SCHEDULED"].includes(campaign.status) && <Button variant="outline" disabled={busy} onClick={() => action(campaign, "pause")}>השהה</Button>}
             {campaign.status === "PAUSED" && <Button disabled={busy} onClick={() => action(campaign, "resume")}>המשך שליחה</Button>}
             {!["CANCELLED", "COMPLETED"].includes(campaign.status) && <Button variant="outline" disabled={busy} onClick={() => action(campaign, "cancel")}>בטל קמפיין</Button>}
+            <Button variant="outline" disabled={busy} onClick={async () => { if (await mutate(`/api/campaigns/${campaign.id}/duplicate`, "POST", {})) toast.success("נוצרה טיוטה חדשה לפי חברי הרשימה והתבנית הנוכחיים. יש לבדוק את הסיכום לפני הפעלה"); }}>שכפל לטיוטה</Button>
             <Button variant="ghost" onClick={() => showDetails({ id: campaign.id, name: campaign.name, total: campaign._count.recipients })}>פירוט נמענים</Button>
           </div>
         </article>)}

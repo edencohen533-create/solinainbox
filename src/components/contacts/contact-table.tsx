@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,17 +26,20 @@ const CONSENT_LABELS: Record<string, string> = {
   UNKNOWN: "לא ידוע",
 };
 
-export function ContactTable({ initialContacts }: { initialContacts: ContactRow[] }) {
+export function ContactTable({ initialContacts, canExport = false }: { initialContacts: ContactRow[]; canExport?: boolean }) {
   const [contacts, setContacts] = useState(initialContacts);
   const [search, setSearch] = useState("");
 
+  const searchRequest = useRef(0);
   async function handleSearch(value: string) {
     setSearch(value);
-    const res = await fetch(`/api/contacts?search=${encodeURIComponent(value)}`);
-    if (res.ok) {
+    const requestId = ++searchRequest.current;
+    try {
+      const res = await fetch(`/api/contacts?search=${encodeURIComponent(value)}`);
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      setContacts(data.contacts);
-    }
+      if (requestId === searchRequest.current) setContacts(data.contacts);
+    } catch { if (requestId === searchRequest.current) toast.error("החיפוש נכשל. מוצגות התוצאות האחרונות"); }
   }
 
   return (
@@ -47,6 +51,7 @@ export function ContactTable({ initialContacts }: { initialContacts: ContactRow[
           placeholder="חיפוש לפי שם, טלפון או אימייל..."
           className="max-w-sm"
         />
+        {canExport && <a className="whitespace-nowrap text-sm underline" href={`/api/contacts/export?search=${encodeURIComponent(search)}`}>ייצוא CSV</a>}
         <NewContactDialog />
       </div>
 

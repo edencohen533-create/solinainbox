@@ -29,17 +29,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const query = new URL(request.url).searchParams;
+  const cursor = z.object({ before: z.iso.datetime().nullable(), beforeId: z.string().min(1).max(200).nullable() })
+    .refine((value) => !!value.before === !!value.beforeId).safeParse({ before: query.get("before"), beforeId: query.get("beforeId") });
+  if (!cursor.success) return Response.json({ error: "סמן עימוד לא תקין" }, { status: 400 });
+  const before = cursor.data.before ? new Date(cursor.data.before) : null;
   const conversation = await prisma.conversation.findFirst({
     where: { id, ...buildConversationScope(session) },
     select: { lastInboundAt: true, messages: {
-      take: 100, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 101,
+      where: before ? { OR: [{ createdAt: { lt: before } }, { createdAt: before, id: { lt: cursor.data.beforeId! } }] } : {},
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { id: true, direction: true, type: true, body: true, status: true, createdAt: true, attachments: { select: { id: true, url: true, mimeType: true, fileName: true, sizeBytes: true } }, sentByUser: { select: { id: true, name: true } } },
     } },
   });
   if (!conversation) return Response.json({ error: "Not found" }, { status: 404 });
-  return Response.json({ messages: conversation.messages.reverse(), lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
+  return Response.json({ messages: conversation.messages.slice(0, 100).reverse(), hasMore: conversation.messages.length > 100, lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
 }
