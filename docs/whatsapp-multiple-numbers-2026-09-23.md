@@ -15,7 +15,7 @@ This extends the existing official Meta Cloud API integration. It does not repla
 
 ## Schema and rollout
 
-`supabase/migrations/20260923122849_whatsapp_multiple_numbers.sql` adds nullable sender references, number labels/display number/team/default/webhook timestamp, three same-business composite foreign keys and a partial unique index allowing at most one active default per business.
+`supabase/migrations/20260923140747_whatsapp_multiple_numbers.sql` adds nullable sender references, number labels/display number/team/default/webhook timestamp, three same-business composite foreign keys and a partial unique index allowing at most one active default per business.
 
 Migration history binding uses actual message credential IDs only if unambiguous, and existing campaign sender snapshots. Demo and ambiguous history stays unbound, never silently converted to live traffic. Production preflight found 262 contacts, 459 messages, zero credentials and zero campaigns. The rollout is additive and compatible with the previous deployment during promotion.
 
@@ -37,3 +37,5 @@ This increment does not complete advanced segments, multi-step automation, media
 Operator setup: replace/disable accounts using seed passwords; connect verified phone IDs belonging to the same WABA with valid server-side token, app secret and verification token; subscribe the correct Meta app; select teams/default number; sync approved templates; then run a signed inbound + reply and a template campaign only to an approved test recipient. Live campaign and two-way acceptance have not been performed.
 
 Provider docs rechecked 2026-09-23: [official pricing page](https://whatsappbusiness.com/products/platform-pricing/) describes delivered-message pricing by market/category and a 24-hour inbound-reset service window. No rate table is hardcoded. The [technical pricing documentation](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing) returned HTTP 429; forthcoming pricing/rate-limit changes cannot be claimed verified from it. Connection remains Graph v21.0 unless configured otherwise; its current lifecycle and account-specific limits still need provider verification.
+
+Production migration applied as `20260923140747_whatsapp_multiple_numbers`. Post-migration counts remained 262 contacts, 459 messages and zero Meta credentials. Supabase security advisor returned no findings.
