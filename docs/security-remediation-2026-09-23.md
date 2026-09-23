@@ -31,3 +31,7 @@ HTTP verification also passed: public requests to User, Contact, Message and
 ProviderCredential return 401 with PostgreSQL error code 42501 (permission denied),
 using the configured anon key. This confirms actual access denial, rather than
 an expired/invalid API credential producing a misleading authentication failure.
+
+Deployment update: the application security changes and feature schema upgrades
+were deployed on 2026-09-23. See deployment-2026-09-23.md. The database now has 22
+protected application tables, including the four campaign/list tables.
