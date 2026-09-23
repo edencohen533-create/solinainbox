@@ -48,7 +48,7 @@ const META_STATUS_TO_MESSAGE_STATUS: Record<string, MessageStatus> = {
  */
 export class MetaWhatsAppProvider implements WhatsAppProvider {
   readonly requiresVerifiedInbound = true;
-  constructor(private readonly config: MetaWhatsAppConfig) {}
+  constructor(private readonly config: MetaWhatsAppConfig, readonly credentialId?: string) {}
 
   private get baseUrl(): string {
     return `https://graph.facebook.com/${this.config.apiVersion ?? "v21.0"}/${this.config.phoneNumberId}`;
@@ -59,6 +59,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   }
 
   private async post(path: string, body: unknown) {
+    if (this.credentialId && !await prisma.providerCredential.findFirst({ where: { id: this.credentialId, isActive: true, sendingBlocked: false, config: { equals: this.config as unknown as import("@prisma/client").Prisma.InputJsonValue } }, select: { id: true } })) throw new Error("WhatsApp connection changed or sending is blocked");
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
@@ -70,6 +71,9 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       redirect: "error",
     });
     const data = await res.json().catch(() => ({}));
+    if (!res.ok && this.credentialId && [10, 190, 200, 131005, 131031].includes(data?.error?.code)) {
+      await prisma.providerCredential.update({ where: { id: this.credentialId }, data: { sendingBlocked: true, lastConnectionError: `Meta error ${data.error.code}`, lastCheckedAt: new Date() } });
+    }
     return { ok: res.ok, data };
   }
 
@@ -100,7 +104,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       return { providerMessageId: "", status: "FAILED", error: data?.error?.message ?? "Meta API error" };
     }
     if (typeof data?.messages?.[0]?.id !== "string" || !data.messages[0].id) throw new Error("Meta accepted request without a message ID; outcome unknown");
-    return { providerMessageId: data.messages[0].id, status: "SENT" };
+    return { providerMessageId: data.messages[0].id, status: "ACCEPTED" };
   }
 
   async sendTemplate(payload: OutboundMessagePayload): Promise<SendResult> {
@@ -135,7 +139,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       return { providerMessageId: "", status: "FAILED", error: data?.error?.message ?? "Meta API error" };
     }
     if (typeof data?.messages?.[0]?.id !== "string" || !data.messages[0].id) throw new Error("Meta accepted request without a message ID; outcome unknown");
-    return { providerMessageId: data.messages[0].id, status: "SENT" };
+    return { providerMessageId: data.messages[0].id, status: "ACCEPTED" };
   }
 
   async uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string; mediaId?: string }> {
@@ -177,7 +181,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   async getMessageStatus(): Promise<MessageStatusResult> {
     // Meta has no pull endpoint for message status — it arrives via the
     // "statuses" webhook events, handled in receiveWebhook() below.
-    return { status: "SENT" };
+    throw new Error("Meta does not provide a message status lookup; use webhook evidence");
   }
 
   verifyWebhook(headers: Headers, rawBody: string): boolean {

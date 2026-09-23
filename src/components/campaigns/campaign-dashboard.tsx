@@ -1,5 +1,6 @@
 "use client";
 
+import { parseCsv } from "@/lib/contact-csv";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ const selectClass = "w-full rounded-md border bg-background p-2 text-sm";
 
 export function CampaignDashboard({ initialCampaigns, lists, contacts, templates, mock }: Props) {
   const router = useRouter();
+  const [review, setReview] = useState<{ campaign: Campaign; action: string; eligible: number; totalQueued: number; exclusions: Record<string, number>; blockers: string[]; samples: { name: string; body: string }[]; sender: string } | null>(null);
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [tab, setTab] = useState<"campaigns" | "lists">("campaigns");
   const [busy, setBusy] = useState(false);
@@ -31,6 +33,9 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
   const [templateId, setTemplateId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<Record<string, string>>({});
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvMapping, setCsvMapping] = useState({ name: "name", phone: "phone", consentStatus: "consentStatus" });
+  const [csvPreview, setCsvPreview] = useState<{ valid: number; duplicateRows: number; errorCount: number; errors: { row: number; error: string }[]; samples: { name: string; phone: string; consentStatus: string }[] } | null>(null);
   const [csv, setCsv] = useState("");
   const [importName, setImportName] = useState("");
   const [listName, setListName] = useState("");
@@ -71,13 +76,25 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
       setDetail({ ...campaign, page, recipients: (await response.json()).recipients });
     } catch { toast.error("לא ניתן לטעון את הנמענים"); }
   }
-  async function action(campaign: Campaign, action: string) {
+  async function action(campaign: Campaign, action: string, confirmed = false) {
+    if (["start", "resume"].includes(action) && !confirmed) {
+      setBusy(true);
+      try {
+        const response = await fetch(`/api/campaigns/${campaign.id}?preflight=1`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "בדיקת הקמפיין נכשלה");
+        setReview({ ...data, campaign, action });
+      } catch (error) { toast.error(error instanceof Error ? error.message : "בדיקת הקמפיין נכשלה"); }
+      finally { setBusy(false); }
+      return;
+    }
     const scheduledAt = action === "start" && schedule[campaign.id] ? new Date(schedule[campaign.id]).toISOString() : undefined;
-    await mutate(`/api/campaigns/${campaign.id}`, "PATCH", { action, scheduledAt });
+    if (await mutate(`/api/campaigns/${campaign.id}`, "PATCH", { action, scheduledAt })) setReview(null);
   }
 
   return <div className="mx-auto max-w-6xl space-y-6 p-6" dir="rtl">
     <div><h1 className="text-2xl font-bold">קמפיינים ורשימות תפוצה</h1><p className="mt-1 text-sm text-muted-foreground">תבניות אישיות, תזמון שליחה ומעקב אחר כל נמען.</p></div>
+    {review && <section role="region" aria-label="סיכום לפני שליחה" className="space-y-3 rounded-xl border-2 p-5"><h2 className="font-semibold">סיכום לפני שליחה — {review.campaign.name}</h2><p>{review.eligible} זכאים מתוך {review.totalQueued} שטרם נשלחו. שולח: {review.sender}</p><p>מועד: {schedule[review.campaign.id] || "מיידי"} · אזור זמן: {Intl.DateTimeFormat().resolvedOptions().timeZone}</p><p>הקהל הוקפא בעת יצירת הטיוטה. חסימות והסרות נבדקות שוב בזמן השליחה. מגבלה מקומית: דיוור אחד לנמען ב־24 שעות. אין נתוני עלות מאומתים להצגת הערכה.</p>{Object.entries(review.exclusions).map(([reason, count]) => <p key={reason}>{reason}: {count}</p>)}{review.blockers.map((reason) => <p key={reason} role="alert">{reason}</p>)}{review.samples.map((sample, i) => <div key={i} className="whitespace-pre-wrap rounded bg-muted p-3"><strong>{sample.name}</strong><p>{sample.body}</p></div>)}<Button disabled={busy || !!review.blockers.length || !review.eligible} onClick={() => action(review.campaign, review.action, true)}>אשר והפעל</Button><Button variant="ghost" onClick={() => setReview(null)}>סגור סיכום</Button></section>}
     {mock && <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">מצב הדגמה פעיל — הודעות מדומות בלבד. לשליחה אמיתית יש לחבר WhatsApp בהגדרות.</div>}
     <div className="flex gap-2"><Button variant={tab === "campaigns" ? "default" : "outline"} onClick={() => setTab("campaigns")}>קמפיינים</Button><Button variant={tab === "lists" ? "default" : "outline"} onClick={() => setTab("lists")}>רשימות תפוצה ({lists.length})</Button></div>
     {tab === "lists" ? <div className="grid gap-6 lg:grid-cols-2">
@@ -91,7 +108,7 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
           if (await mutate(editingList ? `/api/distribution-lists/${editingList}` : "/api/distribution-lists", editingList ? "PUT" : "POST", { name: listName, contactIds: selected })) { setListName(""); setSelected([]); setEditingList(null); toast.success("הרשימה נשמרה"); }
         }}>שמור רשימה</Button>{editingList && <Button variant="outline" onClick={() => { setEditingList(null); setListName(""); setSelected([]); }}>ביטול עריכה</Button>}</div>
       </section>
-      <section className="space-y-3"><div className="space-y-3 rounded-xl border p-5"><h2 className="font-semibold">ייבוא רשימה מ־CSV</h2><p className="text-sm text-muted-foreground">עד 5,000 שורות, עם כותרות name,phone ועמודת consentStatus אופציונלית. הערך OPTED_IN מציין הסכמה קיימת לדיוור; ללא ערך, הנמען לא יקבל קמפיינים. פרטי אנשי קשר קיימים והסכמתם נשמרים.</p><Input aria-label="שם הרשימה המיובאת" placeholder="שם הרשימה" value={importName} onChange={(e) => setImportName(e.target.value)} maxLength={120} /><Input aria-label="קובץ אנשי קשר CSV" type="file" accept=".csv,text/csv" onChange={async (e) => { const file = e.target.files?.[0]; setCsv(""); if (!file) return; if (file.size > 1000000) { toast.error("הקובץ גדול מדי (עד 1MB)"); return; } try { setCsv(await file.text()); } catch { toast.error("קריאת הקובץ נכשלה"); } }} /><pre dir="ltr" className="overflow-auto rounded bg-muted p-2 text-xs">{"name,phone,consentStatus\nישראל,0501234567,OPTED_IN"}</pre><Button disabled={busy || !importName.trim() || !csv} onClick={async () => { if (await mutate("/api/distribution-lists/import", "POST", { name: importName, csv })) { setImportName(""); setCsv(""); toast.success("הרשימה יובאה בהצלחה"); } }}>ייבא רשימה</Button></div><h2 className="font-semibold">הרשימות שלי</h2>{!lists.length && <p className="text-muted-foreground">צור רשימה ראשונה כדי להתחיל.</p>}{lists.map((list) => <div key={list.id} className="flex items-center justify-between rounded-xl border p-4"><div><p className="font-medium">{list.name}</p><p className="text-sm text-muted-foreground">{list._count.members} אנשי קשר</p></div><Button variant="outline" onClick={() => { setEditingList(list.id); setListName(list.name); setSelected(list.members.map((m) => m.contactId)); }}>עריכה</Button></div>)}</section>
+      <section className="space-y-3"><div className="space-y-3 rounded-xl border p-5"><h2 className="font-semibold">ייבוא רשימה מ־CSV</h2><p className="text-sm text-muted-foreground">עד 10,000 שורות, עם כותרות name,phone ועמודת consentStatus אופציונלית. הערך OPTED_IN מציין הסכמה קיימת לדיוור; ללא ערך, הנמען לא יקבל קמפיינים. פרטי אנשי קשר קיימים והסכמתם נשמרים.</p><Input aria-label="שם הרשימה המיובאת" placeholder="שם הרשימה" value={importName} onChange={(e) => setImportName(e.target.value)} maxLength={120} /><Input aria-label="קובץ אנשי קשר CSV" type="file" accept=".csv,text/csv" onChange={async (e) => { const file = e.target.files?.[0]; setCsv(""); setCsvPreview(null); setCsvHeaders([]); if (!file) return; if (file.size > 1000000) { toast.error("הקובץ גדול מדי (עד 1MB)"); return; } try { const text = await file.text(); setCsv(text); setCsvHeaders(parseCsv(text)[0] ?? []); } catch { toast.error("קריאת הקובץ נכשלה"); } }} /><pre dir="ltr" className="overflow-auto rounded bg-muted p-2 text-xs">{"name,phone,consentStatus\nישראל,0501234567,OPTED_IN"}</pre>{csvHeaders.length > 0 && <div className="space-y-2">{(["name", "phone", "consentStatus"] as const).map((key) => <label key={key} className="block">מיפוי {key}<select aria-label={`עמודת ${key}`} className={selectClass} value={csvMapping[key]} onChange={(e) => { setCsvMapping({ ...csvMapping, [key]: e.target.value }); setCsvPreview(null); }}><option value="">ללא עמודה</option>{csvHeaders.map((header, i) => <option key={i} value={header}>{header}</option>)}</select></label>)}<Button variant="outline" disabled={busy || !importName.trim()} onClick={async () => { setBusy(true); try { const response = await fetch("/api/distribution-lists/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: importName, csv, mapping: csvMapping, preview: true }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); setCsvPreview(data); } catch (error) { toast.error(error instanceof Error ? error.message : "הבדיקה נכשלה"); } finally { setBusy(false); } }}>בדוק והצג תצוגה מקדימה</Button></div>}{csvPreview && <div role="status" className="space-y-1 text-sm"><p>{csvPreview.valid} ייחודיים תקינים, {csvPreview.duplicateRows} כפולים, {csvPreview.errorCount} שגיאות. אין שינוי בהסכמת אנשי קשר קיימים.</p>{csvPreview.errors.map((error) => <p key={error.row}>{error.error}</p>)}{csvPreview.samples.map((sample) => <p key={sample.phone}>{sample.name} · <span dir="ltr">{sample.phone}</span> · {sample.consentStatus}</p>)}</div>}<Button disabled={busy || !importName.trim() || !csv || !csvPreview || !!csvPreview.errorCount} onClick={async () => { if (await mutate("/api/distribution-lists/import", "POST", { name: importName, csv, mapping: csvMapping })) { setImportName(""); setCsv(""); toast.success("הרשימה יובאה בהצלחה"); } }}>ייבא רשימה</Button></div><h2 className="font-semibold">הרשימות שלי</h2>{!lists.length && <p className="text-muted-foreground">צור רשימה ראשונה כדי להתחיל.</p>}{lists.map((list) => <div key={list.id} className="flex items-center justify-between rounded-xl border p-4"><div><p className="font-medium">{list.name}</p><p className="text-sm text-muted-foreground">{list._count.members} אנשי קשר</p></div><Button variant="outline" onClick={() => { setEditingList(list.id); setListName(list.name); setSelected(list.members.map((m) => m.contactId)); }}>עריכה</Button></div>)}</section>
     </div> : <>
       <section className="grid gap-5 rounded-xl border p-5 lg:grid-cols-2">
         <div className="space-y-3"><h2 className="font-semibold">קמפיין חדש</h2>
@@ -117,7 +134,7 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
           </div>
         </article>)}
       </div>
-      {detail && <section className="space-y-3 rounded-xl border p-5"><div className="flex items-center justify-between"><h2 className="font-semibold">נמענים — {detail.name}</h2><Button variant="ghost" onClick={() => setDetail(null)}>סגור</Button></div><div className="overflow-x-auto"><table className="w-full text-start text-sm"><thead><tr><th className="p-2 text-start">שם</th><th className="p-2 text-start">טלפון</th><th className="p-2 text-start">מצב</th><th className="p-2 text-start">פירוט</th></tr></thead><tbody>{detail.recipients.map((r) => <tr key={r.id} className="border-t"><td className="p-2">{r.contact.name}</td><td className="p-2" dir="ltr">{r.contact.phone}</td><td className="p-2">{r.deliveryStatus === "READ" ? "נקרא" : r.deliveryStatus === "DELIVERED" ? "נמסר" : r.deliveryStatus === "FAILED" ? "נכשל" : recipientStatusLabels[r.status]}</td><td className="p-2">{r.error}</td></tr>)}</tbody></table></div><div className="flex items-center gap-3"><Button variant="outline" disabled={detail.page <= 1} onClick={() => showDetails(detail, detail.page - 1)}>הקודם</Button><span>עמוד {detail.page}</span><Button variant="outline" disabled={detail.page * 100 >= detail.total} onClick={() => showDetails(detail, detail.page + 1)}>הבא</Button><Button variant="ghost" onClick={() => showDetails(detail, detail.page)}>רענון</Button></div></section>}
+      {detail && <section className="space-y-3 rounded-xl border p-5"><div className="flex items-center justify-between"><h2 className="font-semibold">נמענים — {detail.name}</h2><Button variant="ghost" onClick={() => setDetail(null)}>סגור</Button></div><div className="overflow-x-auto"><table className="w-full text-start text-sm"><thead><tr><th className="p-2 text-start">שם</th><th className="p-2 text-start">טלפון</th><th className="p-2 text-start">מצב</th><th className="p-2 text-start">פירוט</th></tr></thead><tbody>{detail.recipients.map((r) => <tr key={r.id} className="border-t"><td className="p-2">{r.contact.name}</td><td className="p-2" dir="ltr">{r.contact.phone}</td><td className="p-2">{r.deliveryStatus === "ACCEPTED" ? "התקבל אצל הספק" : r.deliveryStatus === "UNKNOWN" ? "תוצאה לא ודאית" : r.deliveryStatus === "READ" ? "נקרא" : r.deliveryStatus === "DELIVERED" ? "נמסר" : r.deliveryStatus === "FAILED" ? "נכשל" : recipientStatusLabels[r.status]}</td><td className="p-2">{r.error}</td></tr>)}</tbody></table></div><div className="flex items-center gap-3"><Button variant="outline" disabled={detail.page <= 1} onClick={() => showDetails(detail, detail.page - 1)}>הקודם</Button><span>עמוד {detail.page}</span><Button variant="outline" disabled={detail.page * 100 >= detail.total} onClick={() => showDetails(detail, detail.page + 1)}>הבא</Button><Button variant="ghost" onClick={() => showDetails(detail, detail.page)}>רענון</Button></div></section>}
     </>}
   </div>;
 }

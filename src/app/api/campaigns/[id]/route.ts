@@ -1,11 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { campaignActor } from "@/lib/campaign-auth";
 import { campaignActionSchema } from "@/lib/campaigns";
-import { CampaignError, changeCampaignStatus } from "@/server/services/campaign-service";
+import { CampaignError, changeCampaignStatus, campaignPreflight } from "@/server/services/campaign-service";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const { id } = await params;
+  if (new URL(request.url).searchParams.get("preflight") === "1") {
+    try { return Response.json(await campaignPreflight(id)); }
+    catch (error) { if (error instanceof CampaignError) return Response.json({ error: error.message }, { status: 404 }); throw error; }
+  }
   const page = Math.max(1, Math.min(100000, Number(new URL(request.url).searchParams.get("page")) || 1));
   const recipients = await prisma.campaignRecipient.findMany({ where: { campaignId: id }, orderBy: { id: "asc" }, take: 100, skip: (Math.floor(page) - 1) * 100, include: { contact: { select: { name: true, phone: true } } } });
   const messages = await prisma.message.findMany({ where: { id: { in: recipients.flatMap((r) => r.messageId ? [r.messageId] : []) } }, select: { id: true, status: true } });

@@ -27,13 +27,11 @@ interface TriggerContext {
   tagId?: string;
 }
 
-let cachedSystemActorId: string | null = null;
+
 
 async function getSystemActorId(): Promise<string> {
-  if (cachedSystemActorId) return cachedSystemActorId;
-  const admin = await prisma.user.findFirst({ where: { role: Role.ADMIN } });
+  const admin = await prisma.user.findFirst({ where: { role: Role.ADMIN, isActive: true } });
   if (!admin) throw new Error("No admin user found to attribute automation actions to");
-  cachedSystemActorId = admin.id;
   return admin.id;
 }
 
@@ -167,7 +165,7 @@ export async function executeAction(
       const reply = await prisma.cannedReply.findUnique({ where: { id: cannedReplyId } });
       if (!reply) return { skipped: "canned reply not found" };
       const sentByUserId = await getSystemActorId();
-      const { message } = await createOutboundMessage({ conversationId, body: reply.body, sentByUserId });
+      const { message } = await createOutboundMessage({ conversationId, body: reply.body, sentByUserId, automated: true });
       return { messageId: message.id };
     }
 
@@ -182,6 +180,7 @@ export async function executeAction(
         body: template.body,
         sentByUserId,
         templateId: template.id,
+        automated: true,
       });
       return { messageId: message.id };
     }

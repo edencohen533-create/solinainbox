@@ -2,10 +2,13 @@ import { z } from "zod";
 import { ConsentStatus } from "@prisma/client";
 
 export const contactSchema = z.object({
-  name: z.string().min(1, "נא להזין שם"),
+  name: z.string().trim().min(1, "נא להזין שם").max(200),
   phone: z.string().min(1, "נא להזין מספר טלפון"),
   email: z.union([z.email("כתובת אימייל לא תקינה"), z.literal("")]).optional(),
-  source: z.string().optional(),
+  source: z.string().max(200).optional(),
+  isBlocked: z.boolean().optional(),
+  consentEvidence: z.string().trim().max(1000).optional(),
+  consentSource: z.string().trim().max(200).optional(),
   consentStatus: z.enum(ConsentStatus),
   tagIds: z.array(z.string()),
 });

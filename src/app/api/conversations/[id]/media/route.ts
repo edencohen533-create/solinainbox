@@ -18,8 +18,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return Response.json({ error: "יש לבחור תמונה, סרטון MP4, קובץ שמע, PDF או TXT עד 4MB" }, { status: 400 });
   }
   if (mediaType(file.type) === "AUDIO" && body.trim()) return Response.json({ error: "לקובץ שמע אין כיתוב בוואטסאפ. יש למחוק את הטקסט או לשלוח אותו בנפרד" }, { status: 400 });
+  const requestId = form?.get("requestId");
+  if (requestId && (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(requestId))) return Response.json({ error: "מזהה בקשה שגוי" }, { status: 400 });
   try {
-    const result = await createOutboundMessage({ conversationId: id, body, type: mediaType(file.type), sentByUserId: session.user.id,
+    const result = await createOutboundMessage({ conversationId: id, body, type: mediaType(file.type), sentByUserId: session.user.id, requestKey: requestId ? `${session.user.id}:${id}:${requestId}` : undefined,
       media: { file: Buffer.from(await file.arrayBuffer()), mimeType: file.type, fileName: file.name.slice(0, 200) },
     });
     if (result.message.status === "FAILED") return Response.json({ error: "הספק דחה את שליחת הקובץ" }, { status: 502 });

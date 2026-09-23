@@ -8,7 +8,7 @@ export interface AnalyticsRange {
 
 export async function getOverviewStats(range: AnalyticsRange) {
   const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  startOfToday.setUTCHours(0, 0, 0, 0);
 
   const [openConversations, messagesToday] = await Promise.all([
     prisma.conversation.count({ where: { status: ConversationStatus.OPEN } }),
@@ -26,7 +26,7 @@ export async function getOverviewStats(range: AnalyticsRange) {
       assignedAgent: { select: { name: true } },
       messages: {
         orderBy: { createdAt: "asc" },
-        select: { direction: true, createdAt: true },
+        select: { direction: true, createdAt: true, status: true },
       },
     },
   });
@@ -37,21 +37,13 @@ export async function getOverviewStats(range: AnalyticsRange) {
   for (const conversation of conversationsInRange) {
     const firstInbound = conversation.messages.find((m) => m.direction === MessageDirection.INBOUND);
     const firstOutboundAfter = conversation.messages.find(
-      (m) => m.direction === MessageDirection.OUTBOUND && firstInbound && m.createdAt > firstInbound.createdAt
+      (m) => m.direction === MessageDirection.OUTBOUND && ["SENT", "DELIVERED", "READ"].includes(m.status) && firstInbound && m.createdAt > firstInbound.createdAt
     );
     if (firstInbound && firstOutboundAfter) {
       totalFirstResponseMs += firstOutboundAfter.createdAt.getTime() - firstInbound.createdAt.getTime();
       firstResponseCount++;
     }
   }
-
-  const resolved = conversationsInRange.filter(
-    (c) => c.status === ConversationStatus.RESOLVED || c.status === ConversationStatus.CLOSED
-  );
-  const avgResolutionMs =
-    resolved.length > 0
-      ? resolved.reduce((sum, c) => sum + (c.updatedAt.getTime() - c.createdAt.getTime()), 0) / resolved.length
-      : 0;
 
   const perAgent = new Map<string, { name: string; total: number; resolved: number }>();
   for (const conversation of conversationsInRange) {
@@ -72,7 +64,8 @@ export async function getOverviewStats(range: AnalyticsRange) {
     openConversations,
     messagesToday,
     avgFirstResponseMinutes: firstResponseCount > 0 ? Math.round(totalFirstResponseMs / firstResponseCount / 60000) : null,
-    avgResolutionHours: resolved.length > 0 ? Math.round((avgResolutionMs / 3_600_000) * 10) / 10 : null,
+    avgResolutionHours: null, // updatedAt is not a closure timestamp; do not invent handling duration.
+    firstResponseCount,
     conversationsInRangeCount: conversationsInRange.length,
     perAgent: Array.from(perAgent.values()),
   };

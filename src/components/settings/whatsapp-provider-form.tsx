@@ -12,6 +12,9 @@ import { Ltr } from "@/components/shared/ltr";
 
 interface Summary {
   provider: string;
+  lastCheckedAt?: string | null;
+  lastConnectionError?: string | null;
+  sendingBlocked?: boolean;
   phoneNumberId?: string | null;
   businessAccountId?: string | null;
   accessTokenMasked?: string | null;
@@ -93,6 +96,7 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
         } catch { setReport("בדיקת החיבור נכשלה"); }
         finally { setChecking(false); }
       }}>{checking ? "בודק..." : "בדוק חיבור Meta"}</Button>{report && <p role="status" className="text-sm">{report}</p>}</div>}
+      {isMetaActive && <p className="text-sm">הגדרה שמורה — אינה הוכחת חיבור פעיל. בדיקה אחרונה: {summary.lastCheckedAt ? new Date(summary.lastCheckedAt).toLocaleString("he-IL") : "טרם נבדק"}. {summary.lastConnectionError}{summary.sendingBlocked && " השליחה חסומה. יש לתקן הרשאות ולשמור את החיבור מחדש."}</p>}
       <Separator />
 
       <div className="space-y-2">

@@ -77,6 +77,11 @@ export async function createContact(input: ContactInput, actorUserId: string) {
       email: input.email || null,
       source: input.source || "manual",
       consentStatus: input.consentStatus,
+      isBlocked: input.isBlocked,
+      consentAt: input.consentStatus !== "UNKNOWN" ? new Date() : null,
+      consentSource: input.consentSource || "manual",
+      consentScope: "marketing",
+      consentEvidence: input.consentEvidence,
       tags: { create: input.tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })) },
     },
   });
@@ -98,7 +103,12 @@ export async function updateContact(id: string, input: Partial<ContactInput>, ac
   if (input.name !== undefined) data.name = input.name;
   if (input.email !== undefined) data.email = input.email || null;
   if (input.source !== undefined) data.source = input.source;
-  if (input.consentStatus !== undefined) data.consentStatus = input.consentStatus;
+  if (input.isBlocked !== undefined) data.isBlocked = input.isBlocked;
+  if (input.consentStatus !== undefined) {
+    data.consentStatus = input.consentStatus;
+    data.consentAt = new Date(); data.consentSource = input.consentSource || "manual";
+    data.consentScope = "marketing"; data.consentEvidence = input.consentEvidence || null;
+  }
 
   if (input.phone !== undefined) {
     const normalizedPhone = normalizePhone(input.phone);
@@ -119,7 +129,7 @@ export async function updateContact(id: string, input: Partial<ContactInput>, ac
     action: "contact.updated",
     entityType: "Contact",
     entityId: contact.id,
-    metadata: { fields: Object.keys(input) },
+    metadata: { fields: Object.keys(input), ...(input.consentStatus ? { consentStatus: input.consentStatus, consentSource: input.consentSource || "manual", consentEvidence: input.consentEvidence ?? null, scope: "marketing" } : {}), ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}) },
   });
 
   return contact;

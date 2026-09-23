@@ -5,6 +5,7 @@ import { getConversationForUser, buildConversationScope } from "@/server/service
 import { createOutboundMessage, MessagePolicyError } from "@/server/services/message-service";
 
 const sendMessageSchema = z.object({
+  requestId: z.uuid().optional(),
   body: z.string().trim().max(4096).default(""),
   templateId: z.string().min(1).optional(),
   templateVariables: z.record(z.string(), z.string().trim().min(1).max(1024)).optional(),
@@ -18,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const parsed = sendMessageSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "תוכן ההודעה אינו תקין" }, { status: 400 });
   try {
-    const result = await createOutboundMessage({ conversationId: id, ...parsed.data, sentByUserId: session.user.id });
+    const result = await createOutboundMessage({ conversationId: id, ...parsed.data, requestKey: parsed.data.requestId ? `${session.user.id}:${id}:${parsed.data.requestId}` : undefined, sentByUserId: session.user.id });
     if (result.message.status === "FAILED") return Response.json({ error: "הספק דחה את שליחת ההודעה", messageId: result.message.id }, { status: 502 });
     return Response.json({ messageId: result.message.id, message: result.message });
   } catch (error) {

@@ -21,7 +21,7 @@ export function templateParameterKeys(body: string): string[] {
 }
 export function validateTemplateVariables(body: string, variables: Record<string, string>) {
   const keys = templateParameterKeys(body);
-  if (keys.some((key, i) => Number(key) !== i + 1 || !variables[key]?.trim())) {
+  if (keys.some((key, i) => Number(key) !== i + 1 || (!variables[key]?.trim() || /\{[^{}]+\}/.test(variables[key].replaceAll("{name}", "sample"))))) {
     throw new Error("יש למלא את כל משתני התבנית לפי הסדר");
   }
   if (Object.keys(variables).some((key) => !keys.includes(key))) {

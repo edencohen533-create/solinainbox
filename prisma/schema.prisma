@@ -45,6 +45,8 @@ enum MessageType {
 }
 
 enum MessageStatus {
+  ACCEPTED
+  UNKNOWN
   QUEUED
   SENT
   DELIVERED
@@ -127,6 +129,12 @@ model Team {
 }
 
 model Contact {
+  isBlocked Boolean @default(false)
+  consentAt DateTime?
+  consentSource String?
+  consentEvidence String?
+  consentScope String?
+  lastMarketingAt DateTime?
   id             String               @id @default(cuid())
   name           String
   phone          String               @unique
@@ -158,6 +166,8 @@ model ContactCustomField {
 }
 
 model Conversation {
+  sendLockToken String?
+  sendLockUntil DateTime?
   id              String              @id @default(cuid())
   contactId       String
   contact         Contact             @relation(fields: [contactId], references: [id])
@@ -184,6 +194,12 @@ model Conversation {
 }
 
 model Message {
+  requestKey String? @unique
+  providerCredentialId String?
+  errorReason String?
+  acceptedAt DateTime?
+  sentAt DateTime?
+  failedAt DateTime?
   id                String              @id @default(cuid())
   conversationId    String
   conversation      Conversation        @relation(fields: [conversationId], references: [id])
@@ -290,7 +306,7 @@ model Template {
   syncError String?
   body      String
   variables String[]         @default([])
-  status    TemplateStatus   @default(APPROVED)
+  status    TemplateStatus   @default(DRAFT)
   messages  Message[]
   campaigns Campaign[]
   createdAt DateTime         @default(now())
@@ -347,6 +363,9 @@ model AuditLog {
 }
 
 model ProviderCredential {
+  lastCheckedAt DateTime?
+  lastConnectionError String?
+  sendingBlocked Boolean @default(false)
   id        String   @id @default(cuid())
   provider  String
   isActive  Boolean  @default(false)
@@ -393,6 +412,8 @@ model DistributionListMember {
 }
 
 model Campaign {
+  senderSnapshot String?
+  templateSnapshot String?
   id          String @id @default(cuid())
   name        String
   listId      String
