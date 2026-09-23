@@ -34,7 +34,8 @@ cp .env.example .env
 ### 3. סכמה ונתוני דמו
 
 ```bash
-npx prisma db push      # יוצר את כל הטבלאות ב-Supabase
+npx prisma db push      # התקנה חדשה בלבד; בשדרוג משתמשים במיגרציות
+npx prisma db execute --schema prisma/schema.prisma --file scripts/organization-security.sql
 npm run prisma:seed     # מאכלס 7 משתמשים, 150 אנשי קשר, 80 שיחות, תבניות ועוד
 ```
 
