@@ -26,4 +26,3 @@ CREATE INDEX "Template_providerAccountId_idx" ON "Template"("providerAccountId")
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Template_name_language_key" ON "Template"("name", "language");
-
