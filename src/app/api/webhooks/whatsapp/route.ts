@@ -1,3 +1,4 @@
+import { InvalidWebhookError } from "@/lib/validation/whatsapp-webhook";
 import { NextResponse } from "next/server";
 import { getActiveProvider } from "@/server/providers/provider-registry";
 
@@ -41,7 +42,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  await provider.receiveWebhook(payload);
+  try { await provider.receiveWebhook(payload); }
+  catch (error) {
+    if (error instanceof InvalidWebhookError) return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
+    throw error;
+  }
 
   // Meta requires a fast 200 response, or it will retry the same webhook.
   return NextResponse.json({ ok: true });

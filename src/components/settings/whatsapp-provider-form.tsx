@@ -13,6 +13,7 @@ import { Ltr } from "@/components/shared/ltr";
 interface Summary {
   provider: string;
   phoneNumberId?: string | null;
+  businessAccountId?: string | null;
   accessTokenMasked?: string | null;
   hasAppSecret?: boolean;
 }
@@ -20,6 +21,7 @@ interface Summary {
 export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSummary: Summary; webhookUrl: string }) {
   const router = useRouter();
   const [summary, setSummary] = useState(initialSummary);
+  const [businessAccountId, setBusinessAccountId] = useState(initialSummary.businessAccountId ?? "");
   const [accessToken, setAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState(initialSummary.phoneNumberId ?? "");
   const [webhookVerifyToken, setWebhookVerifyToken] = useState("");
@@ -35,7 +37,7 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
       const res = await fetch("/api/settings/whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken, phoneNumberId, webhookVerifyToken, appSecret: appSecret || undefined }),
+        body: JSON.stringify({ accessToken, phoneNumberId, businessAccountId: businessAccountId || undefined, webhookVerifyToken, appSecret: appSecret || undefined }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -110,6 +112,10 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
           <Input dir="ltr" className="text-left" value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} />
         </div>
         <div className="space-y-1.5">
+          <Label>WhatsApp Business Account ID (לסנכרון תבניות)</Label>
+          <Input dir="ltr" className="text-left" value={businessAccountId} onChange={(e) => setBusinessAccountId(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
           <Label>Access Token</Label>
           <Input dir="ltr" className="text-left" type="password" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} />
         </div>
@@ -124,11 +130,11 @@ export function WhatsAppProviderForm({ initialSummary, webhookUrl }: { initialSu
           />
         </div>
         <div className="space-y-1.5">
-          <Label>App Secret (אופציונלי, לאימות חתימת webhook)</Label>
+          <Label>App Secret (חובה, לאימות חתימת webhook)</Label>
           <Input dir="ltr" className="text-left" type="password" value={appSecret} onChange={(e) => setAppSecret(e.target.value)} />
         </div>
 
-        <Button onClick={handleActivateMeta} disabled={isSubmitting || !accessToken || !phoneNumberId || !webhookVerifyToken}>
+        <Button onClick={handleActivateMeta} disabled={isSubmitting || !accessToken || !phoneNumberId || !webhookVerifyToken || !appSecret}>
           {isSubmitting ? "מפעיל..." : "שמור והפעל"}
         </Button>
       </div>

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { assignConversation } from "@/server/services/conversation-service";
+import { prisma } from "@/lib/prisma";
+import { buildConversationScope, assignConversation } from "@/server/services/conversation-service";
 
 const assignSchema = z.object({ agentId: z.string().nullable() });
 
@@ -13,7 +14,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const parsed = assignSchema.safeParse(await request.json());
+  const parsed = assignSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
@@ -26,6 +27,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const conversation = await assignConversation(id, agentId, session.user.id);
+  if (agentId && !await prisma.user.findFirst({ where: { id: agentId, isActive: true } })) {
+    return NextResponse.json({ error: "הנציג אינו פעיל או לא קיים" }, { status: 400 });
+  }
+  const conversation = await assignConversation(id, agentId, session.user.id, buildConversationScope(session));
+  if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ conversation });
 }

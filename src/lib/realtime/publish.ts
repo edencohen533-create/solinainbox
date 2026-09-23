@@ -6,12 +6,12 @@ export interface RealtimePublisher {
 }
 
 const supabasePublisher: RealtimePublisher = {
-  async publish(channel, event) {
+  async publish(channel) {
     const client = getSupabaseServerClient();
     const result = await client.channel(channel).send({
       type: "broadcast",
-      event: event.type,
-      payload: event,
+      event: "invalidate",
+      payload: {},
     });
     if (result !== "ok") {
       console.error(`[realtime] publish to "${channel}" failed: ${result}`);
@@ -31,17 +31,27 @@ export function resetRealtimePublisher(): void {
 }
 
 export async function publishNewMessage(event: Extract<RealtimeEvent, { type: "new_message" }>): Promise<void> {
-  await activePublisher.publish(conversationChannel(event.conversationId), event);
-  await activePublisher.publish(INBOX_CHANNEL, event);
+  await safelyPublish(conversationChannel(event.conversationId), event);
+  await safelyPublish(INBOX_CHANNEL, event);
 }
 
 export async function publishConversationUpdated(
   event: Extract<RealtimeEvent, { type: "conversation_updated" }>
 ): Promise<void> {
-  await activePublisher.publish(conversationChannel(event.conversationId), event);
-  await activePublisher.publish(INBOX_CHANNEL, event);
+  await safelyPublish(conversationChannel(event.conversationId), event);
+  await safelyPublish(INBOX_CHANNEL, event);
 }
 
 export async function publishTyping(event: Extract<RealtimeEvent, { type: "typing" }>): Promise<void> {
-  await activePublisher.publish(conversationChannel(event.conversationId), event);
+  await safelyPublish(conversationChannel(event.conversationId), event);
+}
+
+// Public Supabase channels carry wake-up signals only. The browser retrieves
+// actual content from session-authenticated, conversation-scoped HTTP routes.
+async function safelyPublish(channel: string, event: RealtimeEvent) {
+  try { await activePublisher.publish(channel, event); }
+  catch { console.error("Realtime notification failed; authenticated polling will recover"); }
+}
+export async function publishMessageStatus(event: Extract<RealtimeEvent, { type: "message_status" }>) {
+  await safelyPublish(conversationChannel(event.conversationId), event);
 }

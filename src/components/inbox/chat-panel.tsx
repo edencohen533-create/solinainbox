@@ -24,9 +24,26 @@ export function ChatPanel({
   // remounts this component with fresh initial state instead of needing an
   // effect to re-sync `messages` from the `initialMessages` prop.
   const [messages, setMessages] = useState<MessageItem[]>(initialMessages);
+  const [accessRevoked, setAccessRevoked] = useState(false);
+  const [windowClosed, setWindowClosed] = useState(composerDisabled);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useRealtimeChannel(conversationChannel(conversationId), (event) => {
+    if (event.type === "access_revoked") {
+      setAccessRevoked(true); setMessages([]); return;
+    }
+    if (event.type === "conversation_snapshot") {
+      setAccessRevoked(false);
+      setWindowClosed(!event.lastInboundAt || Date.now() - new Date(event.lastInboundAt).getTime() > 86400000);
+      setMessages((prev) => {
+        const byId = new Map(prev.map((message) => [message.id, message]));
+        for (const message of event.messages) byId.set(message.id, message);
+        return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      });
+    }
+    if (event.type === "message_status") {
+      setMessages((prev) => prev.map((message) => message.id === event.messageId ? { ...message, status: event.status } : message));
+    }
     if (event.type === "new_message") {
       setMessages((prev) => {
         if (prev.some((m) => m.id === event.message.id)) return prev;
@@ -50,6 +67,8 @@ export function ChatPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  if (accessRevoked) return <p className="p-4">אין הרשאה להציג שיחה זו. ייתכן שהיא הועברה לנציג אחר.</p>;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto p-4">
@@ -67,7 +86,7 @@ export function ChatPanel({
         })}
         <div ref={bottomRef} />
       </div>
-      <MessageComposer conversationId={conversationId} disabled={composerDisabled} disabledReason={composerDisabledReason} />
+      <MessageComposer onSent={(message) => setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])} conversationId={conversationId} disabled={windowClosed} disabledReason={composerDisabledReason} />
     </div>
   );
 }

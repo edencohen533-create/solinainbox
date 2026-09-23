@@ -1,0 +1,70 @@
+import { prisma } from "@/lib/prisma";
+import { personalizeVariables } from "@/lib/campaigns";
+import { createOutboundMessage, MessagePolicyError } from "@/server/services/message-service";
+
+/** Bounded batches; CAS claims prevent two workers sending the same recipient.
+ * Ambiguous sends are never automatically retried (the provider is not idempotent).
+ */
+export async function processDueCampaigns() {
+  const deadline = Date.now() + 45_000;
+  await prisma.campaignRecipient.updateMany({
+    where: { status: "PROCESSING", claimedAt: { lt: new Date(Date.now() - 10 * 60_000) } },
+    data: { status: "UNKNOWN", error: "העיבוד נקטע; יש לבדוק אצל הספק לפני שליחה נוספת", completedAt: new Date() },
+  });
+  await prisma.campaign.updateMany({ where: { status: "SCHEDULED", scheduledAt: { lte: new Date() } }, data: { status: "RUNNING" } });
+  const due = await prisma.campaignRecipient.findMany({
+    where: { status: "QUEUED", campaign: { status: "RUNNING" } },
+    orderBy: { id: "asc" }, take: 20,
+  });
+  let processed = 0;
+  for (const recipient of due) {
+    if (Date.now() >= deadline) break;
+    const claimed = await prisma.campaignRecipient.updateMany({
+      where: { id: recipient.id, status: "QUEUED", campaign: { status: "RUNNING" } },
+      data: { status: "PROCESSING", claimedAt: new Date() },
+    });
+    if (!claimed.count) continue;
+    processed++;
+    try {
+      const campaign = await prisma.campaign.findUniqueOrThrow({ where: { id: recipient.campaignId }, include: { createdBy: true } });
+      if (campaign.status !== "RUNNING") {
+        await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: campaign.status === "CANCELLED" ? { status: "SKIPPED", error: "הקמפיין בוטל", completedAt: new Date() } : { status: "QUEUED", claimedAt: null } });
+        continue;
+      }
+      if (!campaign.createdBy.isActive || !["ADMIN", "MANAGER"].includes(campaign.createdBy.role)) {
+        await prisma.campaign.updateMany({ where: { id: campaign.id, status: "RUNNING" }, data: { status: "PAUSED" } });
+        await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: { status: "QUEUED", claimedAt: null } });
+        continue;
+      }
+      const contact = await prisma.contact.findUniqueOrThrow({ where: { id: recipient.contactId } });
+      if (contact.consentStatus !== "OPTED_IN") {
+        await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: {
+          status: "SKIPPED", error: "אין הסכמה פעילה לדיוור", completedAt: new Date(),
+        } });
+        continue;
+      }
+      const conversation = await prisma.conversation.findFirst({
+        where: { contactId: contact.id, status: { in: ["OPEN", "PENDING"] }, isSpam: false }, orderBy: { createdAt: "desc" },
+      }) ?? await prisma.conversation.create({ data: { contactId: contact.id, source: "MANUAL" } });
+      const { message } = await createOutboundMessage({
+        conversationId: conversation.id, body: "", templateId: campaign.templateId,
+        templateVariables: personalizeVariables(campaign.variables as Record<string, string>, contact.name),
+        sentByUserId: campaign.createdById, requireOptIn: true, campaignRecipientId: recipient.id,
+      });
+      await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: {
+        status: message.status === "FAILED" ? "FAILED" : "SENT", messageId: message.id,
+        error: message.status === "FAILED" ? "הספק דחה את ההודעה" : null, completedAt: new Date(),
+      } });
+    } catch (error) {
+      await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: {
+        status: error instanceof MessagePolicyError ? "SKIPPED" : "UNKNOWN",
+        error: error instanceof MessagePolicyError ? error.message : "לא ניתן לאמת את השליחה; יש לבדוק לפני ניסיון נוסף", completedAt: new Date(),
+      } });
+    }
+  }
+  await prisma.campaign.updateMany({
+    where: { status: "RUNNING", recipients: { none: { status: { in: ["QUEUED", "PROCESSING"] } } } },
+    data: { status: "COMPLETED" },
+  });
+  return { processed };
+}

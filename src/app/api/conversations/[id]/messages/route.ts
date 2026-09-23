@@ -1,44 +1,44 @@
-import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { getConversationForUser } from "@/server/services/conversation-service";
-import { createOutboundMessage } from "@/server/services/message-service";
+import { getConversationForUser, buildConversationScope } from "@/server/services/conversation-service";
+import { createOutboundMessage, MessagePolicyError } from "@/server/services/message-service";
 
 const sendMessageSchema = z.object({
-  body: z.string().min(1),
-});
+  body: z.string().trim().max(4096).default(""),
+  templateId: z.string().min(1).optional(),
+  templateVariables: z.record(z.string(), z.string().trim().min(1).max(1024)).optional(),
+}).refine((value) => value.templateId || value.body.length > 0);
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const conversation = await getConversationForUser(session, id);
-  if (!conversation) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!await getConversationForUser(session, id)) return Response.json({ error: "Not found" }, { status: 404 });
+  const parsed = sendMessageSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: "תוכן ההודעה אינו תקין" }, { status: 400 });
+  try {
+    const result = await createOutboundMessage({ conversationId: id, ...parsed.data, sentByUserId: session.user.id });
+    if (result.message.status === "FAILED") return Response.json({ error: "הספק דחה את שליחת ההודעה", messageId: result.message.id }, { status: 502 });
+    return Response.json({ messageId: result.message.id, message: result.message });
+  } catch (error) {
+    if (error instanceof MessagePolicyError) return Response.json({ error: error.message }, { status: 409 });
+    console.error("Message send failed", error instanceof Error ? error.name : "Unknown");
+    return Response.json({ error: "לא ניתן לאמת את השליחה. יש לבדוק את השיחה לפני ניסיון נוסף" }, { status: 502 });
   }
+}
 
-  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-  const withinWindow = conversation.lastInboundAt && Date.now() - conversation.lastInboundAt.getTime() <= TWENTY_FOUR_HOURS_MS;
-  if (!withinWindow) {
-    return NextResponse.json(
-      { error: "Free-text messages require the customer to have messaged within the last 24 hours. Use an approved template instead." },
-      { status: 409 }
-    );
-  }
-
-  const parsed = sendMessageSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const result = await createOutboundMessage({
-    conversationId: id,
-    body: parsed.data.body,
-    sentByUserId: session.user.id,
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  const conversation = await prisma.conversation.findFirst({
+    where: { id, ...buildConversationScope(session) },
+    select: { lastInboundAt: true, messages: {
+      take: 100, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true, direction: true, type: true, body: true, status: true, createdAt: true, attachments: { select: { id: true, url: true, mimeType: true, fileName: true, sizeBytes: true } }, sentByUser: { select: { id: true, name: true } } },
+    } },
   });
-
-  return NextResponse.json({ messageId: result.message.id });
+  if (!conversation) return Response.json({ error: "Not found" }, { status: 404 });
+  return Response.json({ messages: conversation.messages.reverse(), lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
 }

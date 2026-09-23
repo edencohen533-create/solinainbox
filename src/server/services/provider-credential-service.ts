@@ -13,6 +13,7 @@ export async function getActiveProviderSummary() {
     provider: active.provider,
     configured: true,
     phoneNumberId: config.phoneNumberId ?? null,
+    businessAccountId: config.businessAccountId ?? null,
     accessTokenMasked: config.accessToken ? `${"•".repeat(Math.max(config.accessToken.length - 4, 4))}${config.accessToken.slice(-4)}` : null,
     hasAppSecret: Boolean(config.appSecret),
   };

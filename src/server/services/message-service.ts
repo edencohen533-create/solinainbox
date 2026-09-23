@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { renderTemplate, validateTemplateVariables } from "@/lib/campaigns";
 import { prisma } from "@/lib/prisma";
 import { AutomationTrigger, ConversationSource, ConversationStatus, MessageDirection, MessageStatus, MessageType } from "@prisma/client";
 import { publishConversationUpdated, publishNewMessage } from "@/lib/realtime/publish";
@@ -13,6 +15,9 @@ export interface CreateInboundMessageInput {
   type?: MessageType;
   mediaUrl?: string;
   source?: ConversationSource;
+  providerMessageId?: string;
+  receivedAt?: Date;
+  media?: { providerMediaId: string; mimeType: string; fileName?: string };
 }
 
 /**
@@ -23,87 +28,66 @@ export interface CreateInboundMessageInput {
  * change when a real provider is plugged in.
  */
 export async function createInboundMessage(input: CreateInboundMessageInput) {
-  const openConversation = await prisma.conversation.findFirst({
-    where: {
-      contactId: input.contactId,
-      status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] },
-    },
-    orderBy: { createdAt: "desc" },
+  const result = await prisma.$transaction(async (tx) => {
+    // Serialize inbound messages for the same contact, including different
+    // provider IDs arriving at once when no conversation exists yet.
+    await tx.$queryRaw`SELECT id FROM "Contact" WHERE id = ${input.contactId} FOR UPDATE`;
+    if (input.providerMessageId) {
+      const existing = await tx.message.findUnique({ where: { inboundKey: input.providerMessageId }, include: { conversation: true } });
+      if (existing) return { conversation: existing.conversation, message: existing, isNewConversation: false, isDuplicate: true };
+    }
+    if (["הסר", "הסרה", "הסר אותי", "stop", "unsubscribe"].includes(input.body.trim().toLowerCase())) {
+      await tx.contact.update({ where: { id: input.contactId }, data: { consentStatus: "OPTED_OUT" } });
+    }
+    const openConversation = await tx.conversation.findFirst({
+      where: { contactId: input.contactId, status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] } },
+      orderBy: { createdAt: "desc" },
+    });
+    const conversation = openConversation ?? await tx.conversation.create({ data: {
+      contactId: input.contactId, status: ConversationStatus.OPEN, source: input.source ?? ConversationSource.MOCK,
+    } });
+    const receivedAt = input.receivedAt ?? new Date();
+    const attachmentId = randomUUID();
+    const message = await tx.message.create({ data: {
+      conversationId: conversation.id, direction: MessageDirection.INBOUND,
+      type: input.type ?? MessageType.TEXT, body: input.body, status: MessageStatus.SENT,
+      createdAt: receivedAt, inboundKey: input.providerMessageId, providerMessageId: input.providerMessageId,
+      ...(input.media ? { attachments: { create: [{ id: attachmentId, url: `/api/attachments/${attachmentId}`, ...input.media }] } } : {}),
+      ...(!input.media && input.mediaUrl ? { attachments: { create: [{ url: input.mediaUrl, mimeType: guessMimeType(input.type) }] } } : {}),
+    } });
+    // Delayed webhook retries must not reopen the 24-hour reply window or
+    // move the inbox ordering backwards. Outbound updates can run concurrently.
+    await tx.conversation.updateMany({
+      where: { id: conversation.id, OR: [{ lastMessageAt: null }, { lastMessageAt: { lt: receivedAt } }] }, data: { lastMessageAt: receivedAt },
+    });
+    await tx.conversation.updateMany({
+      where: { id: conversation.id, OR: [{ lastInboundAt: null }, { lastInboundAt: { lt: receivedAt } }] }, data: { lastInboundAt: receivedAt },
+    });
+    const updated = await tx.conversation.update({ where: { id: conversation.id }, data: { unreadCount: { increment: 1 } } });
+    await tx.auditLog.create({ data: {
+      action: openConversation ? "message.received" : "conversation.created",
+      entityType: "Conversation", entityId: conversation.id, conversationId: conversation.id,
+      metadata: { messageId: message.id },
+    } });
+    return { conversation: updated, message, isNewConversation: !openConversation, isDuplicate: false };
   });
-
-  const conversation =
-    openConversation ??
-    (await prisma.conversation.create({
-      data: {
-        contactId: input.contactId,
-        status: ConversationStatus.OPEN,
-        source: input.source ?? ConversationSource.MOCK,
-      },
-    }));
-
-  const isNewConversation = !openConversation;
-  const now = new Date();
-
-  const message = await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      direction: MessageDirection.INBOUND,
-      type: input.type ?? MessageType.TEXT,
-      body: input.body,
-      status: MessageStatus.SENT,
-      createdAt: now,
-      ...(input.mediaUrl
-        ? { attachments: { create: [{ url: input.mediaUrl, mimeType: guessMimeType(input.type) }] } }
-        : {}),
-    },
-  });
-
-  const updated = await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: {
-      lastMessageAt: now,
-      lastInboundAt: now,
-      unreadCount: { increment: 1 },
-    },
-  });
-
-  await writeAuditLog({
-    action: isNewConversation ? "conversation.created" : "message.received",
-    entityType: "Conversation",
-    entityId: conversation.id,
-    conversationId: conversation.id,
-    metadata: { messageId: message.id },
-  });
-
-  await evaluateTrigger(AutomationTrigger.NEW_INBOUND_MESSAGE, { conversationId: conversation.id });
-  if (isNewConversation) {
-    await evaluateTrigger(AutomationTrigger.NEW_CONVERSATION, { conversationId: conversation.id });
-  }
-  await scheduleNoReplyChecks(conversation.id);
-
-  await publishNewMessage({
-    type: "new_message",
-    conversationId: conversation.id,
-    message: {
-      id: message.id,
-      direction: message.direction,
-      type: message.type,
-      body: message.body,
-      status: message.status,
-      createdAt: message.createdAt.toISOString(),
-    },
-  });
-
-  await publishConversationUpdated({
-    type: "conversation_updated",
-    conversationId: conversation.id,
-    patch: {
-      unreadCount: updated.unreadCount,
-      lastMessageAt: updated.lastMessageAt?.toISOString(),
-    },
-  });
-
-  return { conversation: updated, message, isNewConversation };
+  if (result.isDuplicate) return result;
+  const { conversation, message, isNewConversation } = result;
+  // A notification outage must not cause Meta to re-deliver a committed message.
+  const effects = await Promise.allSettled([
+    evaluateTrigger(AutomationTrigger.NEW_INBOUND_MESSAGE, { conversationId: conversation.id }),
+    ...(isNewConversation ? [evaluateTrigger(AutomationTrigger.NEW_CONVERSATION, { conversationId: conversation.id })] : []),
+    scheduleNoReplyChecks(conversation.id),
+    publishNewMessage({ type: "new_message", conversationId: conversation.id, message: {
+      id: message.id, direction: message.direction, type: message.type, body: message.body,
+      status: message.status, createdAt: message.createdAt.toISOString(),
+    } }),
+    publishConversationUpdated({ type: "conversation_updated", conversationId: conversation.id, patch: {
+      unreadCount: conversation.unreadCount, lastMessageAt: conversation.lastMessageAt?.toISOString(),
+    } }),
+  ]);
+  if (effects.some((effect) => effect.status === "rejected")) console.error("Inbound message persisted; one or more follow-up actions failed");
+  return result;
 }
 
 export interface CreateOutboundMessageInput {
@@ -112,7 +96,13 @@ export interface CreateOutboundMessageInput {
   type?: MessageType;
   sentByUserId: string;
   templateId?: string;
+  templateVariables?: Record<string, string>;
+  requireOptIn?: boolean;
+  campaignRecipientId?: string;
+  media?: { file: Buffer; mimeType: string; fileName: string };
 }
+
+export class MessagePolicyError extends Error {}
 
 export async function createOutboundMessage(input: CreateOutboundMessageInput) {
   const now = new Date();
@@ -122,37 +112,69 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
     include: { contact: true },
   });
 
+  if (conversation.contact.consentStatus === "OPTED_OUT" || (input.requireOptIn && conversation.contact.consentStatus !== "OPTED_IN")) {
+    throw new MessagePolicyError("איש הקשר אינו מאשר קבלת הודעות");
+  }
+  let body = input.body;
+  if (input.templateId) {
+    const template = await prisma.template.findUnique({ where: { id: input.templateId } });
+    if (!template || template.status !== "APPROVED") throw new MessagePolicyError("התבנית אינה מאושרת לשליחה");
+    try { validateTemplateVariables(template.body, input.templateVariables ?? {}); }
+    catch (error) { throw new MessagePolicyError((error as Error).message); }
+    body = renderTemplate(template.body, input.templateVariables ?? {});
+  } else if (!conversation.lastInboundAt || now.getTime() - conversation.lastInboundAt.getTime() > 86400000) {
+    throw new MessagePolicyError("חלון המענה הסתיים. יש לשלוח תבנית מאושרת");
+  }
   const provider = await getActiveProvider();
   const messageType = input.templateId ? "TEMPLATE" : (input.type ?? MessageType.TEXT);
+  const uploaded = input.media ? await provider.uploadMedia(input.media.file, input.media.mimeType) : undefined;
   const outboundPayload: OutboundMessagePayload = {
     conversationId: input.conversationId,
     to: conversation.contact.phone,
     type: messageType as OutboundMessagePayload["type"],
-    body: input.body,
+    body,
     templateId: input.templateId,
+    templateVariables: input.templateVariables,
+    ...(uploaded ? { mediaId: uploaded.mediaId, mediaUrl: uploaded.mediaUrl, fileName: input.media?.fileName } : {}),
   };
 
-  const sendResult = input.templateId
-    ? await provider.sendTemplate(outboundPayload)
-    : await provider.sendMessage(outboundPayload);
-
-  const message = await prisma.message.create({
+  // Persist before contacting the provider. A timeout may mean it accepted
+  // the message, so retain the queued row and never retry automatically.
+  const attachmentId = randomUUID();
+  const queued = await prisma.message.create({
     data: {
       conversationId: input.conversationId,
       direction: MessageDirection.OUTBOUND,
-      type: input.type ?? MessageType.TEXT,
-      body: input.body,
-      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : MessageStatus.SENT,
+      type: input.templateId ? MessageType.TEMPLATE : (input.type ?? MessageType.TEXT),
+      body,
+      status: MessageStatus.QUEUED,
       sentByUserId: input.sentByUserId,
       templateId: input.templateId,
-      providerMessageId: sendResult.providerMessageId || null,
       createdAt: now,
+      ...(uploaded && input.media ? { attachments: { create: [{
+        id: attachmentId, url: uploaded.mediaId ? `/api/attachments/${attachmentId}` : uploaded.mediaUrl,
+        providerMediaId: uploaded.mediaId, mimeType: input.media.mimeType, fileName: input.media.fileName, sizeBytes: input.media.file.length,
+      }] } } : {}),
+    },
+  });
+  if (input.campaignRecipientId) {
+    await prisma.campaignRecipient.update({ where: { id: input.campaignRecipientId }, data: { messageId: queued.id } });
+  }
+  const sendResult = input.templateId
+    ? await provider.sendTemplate(outboundPayload)
+    : await provider.sendMessage(outboundPayload);
+  const message = await prisma.message.update({
+    where: { id: queued.id },
+    include: { attachments: { select: { id: true, url: true, mimeType: true, fileName: true, sizeBytes: true } } },
+    data: {
+      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : MessageStatus.SENT,
+      providerMessageId: sendResult.providerMessageId || null,
     },
   });
 
   const updated = await prisma.conversation.update({
     where: { id: input.conversationId },
-    data: { lastMessageAt: now },
+    data: sendResult.status === "FAILED" ? {} : { lastMessageAt: now },
   });
 
   await writeAuditLog({

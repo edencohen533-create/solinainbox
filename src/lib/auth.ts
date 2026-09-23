@@ -48,6 +48,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.teamId = user.teamId;
       }
+      if (token.id) {
+        const current = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, teamId: true, isActive: true } });
+        if (!current?.isActive) return null;
+        token.role = current.role;
+        token.teamId = current.teamId;
+      }
       return token;
     },
     async session({ session, token }) {

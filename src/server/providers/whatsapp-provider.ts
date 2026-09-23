@@ -4,6 +4,8 @@ export interface OutboundMessagePayload {
   type: "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT" | "TEMPLATE";
   body?: string;
   mediaUrl?: string;
+  mediaId?: string;
+  fileName?: string;
   templateId?: string;
   templateVariables?: Record<string, string>;
 }
@@ -27,7 +29,8 @@ export interface MessageStatusResult {
 export interface WhatsAppProvider {
   sendMessage(payload: OutboundMessagePayload): Promise<SendResult>;
   sendTemplate(payload: OutboundMessagePayload): Promise<SendResult>;
-  uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string }>;
+  uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string; mediaId?: string }>;
+  downloadMedia?(mediaId: string, range?: string): Promise<Response>;
   getMessageStatus(providerMessageId: string): Promise<MessageStatusResult>;
   /** POST webhook signature verification (e.g. X-Hub-Signature-256). */
   verifyWebhook(headers: Headers, rawBody: string): boolean;

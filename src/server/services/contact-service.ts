@@ -44,7 +44,7 @@ export async function getContact(id: string) {
       tags: { include: { tag: true } },
       customFields: true,
       conversations: { orderBy: { createdAt: "desc" }, take: 20 },
-      notes: { orderBy: { createdAt: "desc" }, include: { author: true } },
+      notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { id: true, name: true } } } },
     },
   });
 }

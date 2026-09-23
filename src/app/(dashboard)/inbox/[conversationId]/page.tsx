@@ -33,6 +33,7 @@ export default async function ConversationPage({
     body: message.body,
     status: message.status,
     createdAt: message.createdAt.toISOString(),
+    attachments: message.attachments.map(({ id, url, mimeType, fileName, sizeBytes }) => ({ id, url, mimeType, fileName, sizeBytes })),
     sentByUser: message.sentByUser ? { id: message.sentByUser.id, name: message.sentByUser.name } : null,
   }));
 

@@ -1,3 +1,7 @@
+import { templateParameterKeys, validateTemplateVariables } from "@/lib/campaigns";
+import { metaWebhookSchema, providerTimestamp, InvalidWebhookError, type MetaInboundMessage } from "@/lib/validation/whatsapp-webhook";
+import { updateProviderMessageStatus } from "@/server/services/message-status-service";
+import { MAX_DOWNLOAD_BYTES, safeMediaDownloadUrl } from "@/lib/media";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { ConversationSource, MessageStatus, MessageType } from "@prisma/client";
@@ -13,6 +17,7 @@ import type {
 export interface MetaWhatsAppConfig {
   accessToken: string;
   phoneNumberId: string;
+  businessAccountId?: string;
   webhookVerifyToken: string;
   appSecret?: string;
   apiVersion?: string;
@@ -60,6 +65,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, data };
@@ -68,19 +74,20 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   async sendMessage(payload: OutboundMessagePayload): Promise<SendResult> {
     const to = this.toE164Digits(payload.to);
     let body: Record<string, unknown>;
+    const media = payload.mediaId ? { id: payload.mediaId } : { link: payload.mediaUrl };
 
     switch (payload.type) {
       case "IMAGE":
-        body = { messaging_product: "whatsapp", to, type: "image", image: { link: payload.mediaUrl } };
+        body = { messaging_product: "whatsapp", to, type: "image", image: { ...media, ...(payload.body ? { caption: payload.body } : {}) } };
         break;
       case "VIDEO":
-        body = { messaging_product: "whatsapp", to, type: "video", video: { link: payload.mediaUrl } };
+        body = { messaging_product: "whatsapp", to, type: "video", video: { ...media, ...(payload.body ? { caption: payload.body } : {}) } };
         break;
       case "AUDIO":
-        body = { messaging_product: "whatsapp", to, type: "audio", audio: { link: payload.mediaUrl } };
+        body = { messaging_product: "whatsapp", to, type: "audio", audio: media };
         break;
       case "DOCUMENT":
-        body = { messaging_product: "whatsapp", to, type: "document", document: { link: payload.mediaUrl } };
+        body = { messaging_product: "whatsapp", to, type: "document", document: { ...media, ...(payload.body ? { caption: payload.body } : {}), ...(payload.fileName ? { filename: payload.fileName } : {}) } };
         break;
       default:
         body = { messaging_product: "whatsapp", to, type: "text", text: { body: payload.body ?? "" } };
@@ -99,14 +106,15 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     }
 
     const template = await prisma.template.findUnique({ where: { id: payload.templateId } });
-    if (!template) {
-      return { providerMessageId: "", status: "FAILED", error: "Template not found" };
+    if (!template || template.status !== "APPROVED" || !template.providerTemplateId || !this.config.businessAccountId || template.providerAccountId !== this.config.businessAccountId) {
+      return { providerMessageId: "", status: "FAILED", error: "Template is not approved" };
     }
 
     const to = this.toE164Digits(payload.to);
-    const parameters = Object.values(payload.templateVariables ?? {}).map((value) => ({
-      type: "text",
-      text: value,
+    try { validateTemplateVariables(template.body, payload.templateVariables ?? {}); }
+    catch { return { providerMessageId: "", status: "FAILED", error: "Invalid template variables" }; }
+    const parameters = templateParameterKeys(template.body).map((key) => ({
+      type: "text", text: payload.templateVariables![key],
     }));
 
     const { ok, data } = await this.post("/messages", {
@@ -126,26 +134,40 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     return { providerMessageId: data?.messages?.[0]?.id ?? "", status: "SENT" };
   }
 
-  async uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string }> {
+  async uploadMedia(file: Buffer, mimeType: string): Promise<{ mediaUrl: string; mediaId?: string }> {
     const form = new FormData();
     form.append("messaging_product", "whatsapp");
+    form.append("type", mimeType);
     form.append("file", new Blob([new Uint8Array(file)], { type: mimeType }));
 
     const res = await fetch(`${this.baseUrl}/media`, {
       method: "POST",
       headers: { Authorization: `Bearer ${this.config.accessToken}` },
       body: form,
+      signal: AbortSignal.timeout(15000),
     });
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data?.error?.message ?? "Meta media upload failed");
     }
-    // Meta returns an internal media ID here, not a public URL — a real
-    // send call references it via `{ id: mediaId }` instead of `{ link }`.
-    // Kept as a known simplification: send flows in this app use `link`
-    // (mediaUrl on the Message/attachment), so wiring up ID-based media
-    // sends is the one piece left for full media support.
-    return { mediaUrl: data.id };
+    if (typeof data.id !== "string" || !/^\d+$/.test(data.id)) throw new Error("Missing Meta media ID");
+    return { mediaUrl: `meta:${data.id}`, mediaId: data.id };
+  }
+
+  async downloadMedia(mediaId: string, range?: string): Promise<Response> {
+    if (!/^\d+$/.test(mediaId)) throw new Error("Invalid media ID");
+    const headers = { Authorization: `Bearer ${this.config.accessToken}` };
+    const metadata = await fetch(`https://graph.facebook.com/${this.config.apiVersion ?? "v21.0"}/${mediaId}?phone_number_id=${encodeURIComponent(this.config.phoneNumberId)}`, {
+      headers, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(10000),
+    });
+    if (!metadata.ok) throw new Error("Media is no longer available");
+    const data = await metadata.json();
+    if (Number(data.file_size) > MAX_DOWNLOAD_BYTES) throw new Error("Media exceeds download limit");
+    const url = safeMediaDownloadUrl(data.url);
+    const response = await fetch(url, { headers: { ...headers, ...(range ? { Range: range } : {}) }, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(15000) });
+    if (!response.ok || !response.body) throw new Error("Media download failed");
+    if (Number(response.headers.get("content-length")) > MAX_DOWNLOAD_BYTES) { await response.body.cancel(); throw new Error("Media exceeds download limit"); }
+    return response;
   }
 
   async getMessageStatus(): Promise<MessageStatusResult> {
@@ -156,10 +178,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 
   verifyWebhook(headers: Headers, rawBody: string): boolean {
     if (!this.config.appSecret) {
-      // No app secret configured — can't verify signatures. Accept but log,
-      // rather than hard-blocking a webhook someone hasn't fully set up.
-      console.warn("[meta-whatsapp] appSecret not configured; skipping webhook signature verification");
-      return true;
+      return false;
     }
 
     const signatureHeader = headers.get("x-hub-signature-256");
@@ -182,18 +201,19 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   }
 
   async receiveWebhook(payload: unknown): Promise<void> {
-    const body = payload as MetaWebhookPayload;
-
-    for (const entry of body?.entry ?? []) {
-      for (const change of entry?.changes ?? []) {
-        const value = change?.value;
-        if (!value) continue;
-
+    const parsed = metaWebhookSchema.safeParse(payload);
+    if (!parsed.success) throw new InvalidWebhookError("Invalid webhook payload");
+    for (const entry of parsed.data.entry) {
+      for (const change of entry.changes) {
+        const value = change.value;
+        if (change.field !== "messages" || value.metadata?.phone_number_id !== this.config.phoneNumberId) continue;
         for (const message of value.messages ?? []) {
-          await this.handleInboundMessage(message, value.contacts?.[0]?.profile?.name);
+          const contactName = value.contacts?.find((contact) => contact.wa_id === message.from)?.profile?.name;
+          await this.handleInboundMessage(message, contactName);
         }
         for (const status of value.statuses ?? []) {
-          await this.handleStatusUpdate(status);
+          const mapped = META_STATUS_TO_MESSAGE_STATUS[status.status];
+          if (mapped) await updateProviderMessageStatus(status.id, mapped, providerTimestamp(status.timestamp));
         }
       }
     }
@@ -202,69 +222,31 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
   private async handleInboundMessage(message: MetaInboundMessage, contactName: string | undefined) {
     const phone = normalizePhone(`+${message.from}`) ?? `+${message.from}`;
 
-    let contact = await prisma.contact.findUnique({ where: { phone } });
-    if (!contact) {
-      contact = await prisma.contact.create({
-        data: { name: contactName ?? phone, phone, source: "whatsapp" },
-      });
-    }
+    const contact = await prisma.contact.upsert({ where: { phone }, update: {}, create: {
+      name: contactName ?? phone, phone, source: "whatsapp",
+    } });
 
     const type = META_TYPE_TO_MESSAGE_TYPE[message.type] ?? MessageType.TEXT;
     const text =
       message.text?.body ??
+      message.button?.text ??
+      message.interactive?.button_reply?.title ??
+      message.interactive?.list_reply?.title ??
       message.image?.caption ??
       message.video?.caption ??
       message.document?.caption ??
       `[${message.type}]`;
 
+    const attachment = message.image ?? message.video ?? message.audio ?? message.document;
     await createInboundMessage({
       contactId: contact.id,
+      providerMessageId: message.id,
+      receivedAt: providerTimestamp(message.timestamp),
+      media: attachment ? { providerMediaId: attachment.id, mimeType: attachment.mime_type ?? "application/octet-stream", fileName: attachment.filename } : undefined,
       body: text,
       type,
       source: ConversationSource.WHATSAPP,
     });
   }
 
-  private async handleStatusUpdate(status: MetaStatusUpdate) {
-    const mappedStatus = META_STATUS_TO_MESSAGE_STATUS[status.status];
-    if (!mappedStatus) return;
-
-    const timestamp = status.timestamp ? new Date(Number(status.timestamp) * 1000) : new Date();
-
-    await prisma.message.updateMany({
-      where: { providerMessageId: status.id },
-      data: {
-        status: mappedStatus,
-        ...(mappedStatus === MessageStatus.DELIVERED ? { deliveredAt: timestamp } : {}),
-        ...(mappedStatus === MessageStatus.READ ? { readAt: timestamp } : {}),
-      },
-    });
-  }
-}
-
-interface MetaInboundMessage {
-  from: string;
-  type: string;
-  text?: { body: string };
-  image?: { caption?: string };
-  video?: { caption?: string };
-  document?: { caption?: string };
-}
-
-interface MetaStatusUpdate {
-  id: string;
-  status: string;
-  timestamp?: string;
-}
-
-interface MetaWebhookPayload {
-  entry?: Array<{
-    changes?: Array<{
-      value?: {
-        messages?: MetaInboundMessage[];
-        statuses?: MetaStatusUpdate[];
-        contacts?: Array<{ profile?: { name?: string } }>;
-      };
-    }>;
-  }>;
 }

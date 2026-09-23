@@ -37,4 +37,16 @@ export interface TypingEvent {
   isTyping: boolean;
 }
 
-export type RealtimeEvent = NewMessageEvent | ConversationUpdatedEvent | TypingEvent;
+export interface MessageStatusEvent {
+  type: "message_status";
+  conversationId: string;
+  messageId: string;
+  status: MessageStatus;
+}
+export interface ConversationSnapshotEvent {
+  type: "conversation_snapshot";
+  conversationId: string;
+  messages: import("@/types/domain").MessageItem[];
+  lastInboundAt: string | null;
+}
+export type RealtimeEvent = MessageStatusEvent | ConversationSnapshotEvent | { type: "access_revoked" } | { type: "invalidate" } | NewMessageEvent | ConversationUpdatedEvent | TypingEvent;
