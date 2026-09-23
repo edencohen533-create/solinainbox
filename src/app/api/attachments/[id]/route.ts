@@ -11,12 +11,12 @@ export const GET = organizationRequest(async function(request: Request, { params
   const { id } = await params;
   const attachment = await prisma.messageAttachment.findFirst({ where: {
     id, message: { conversation: buildConversationScope(session) },
-  } });
+  }, include: { message: { select: { providerCredentialId: true, conversation: { select: { providerCredentialId: true } } } } } });
   if (!attachment?.providerMediaId) return Response.json({ error: "Not found" }, { status: 404 });
   const range = request.headers.get("range") ?? undefined;
   if (range && !/^bytes=\d*-\d*$/.test(range)) return new Response(null, { status: 416 });
   try {
-    const provider = await getActiveProvider();
+    const provider = await getActiveProvider(attachment.message.providerCredentialId ?? attachment.message.conversation.providerCredentialId, true);
     if (!provider.downloadMedia) return Response.json({ error: "Media provider unavailable" }, { status: 409 });
     const source = await provider.downloadMedia(attachment.providerMediaId, range);
     let bytes = 0;

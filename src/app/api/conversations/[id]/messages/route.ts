@@ -41,7 +41,7 @@ export const GET = organizationRequest(async function(request: Request, { params
   const before = cursor.data.before ? new Date(cursor.data.before) : null;
   const conversation = await prisma.conversation.findFirst({
     where: { id, ...buildConversationScope(session) },
-    select: { lastInboundAt: true, messages: {
+    select: { providerCredentialId: true, providerCredential: { select: { isActive: true, sendingBlocked: true } }, lastInboundAt: true, messages: {
       take: 101,
       where: before ? { OR: [{ createdAt: { lt: before } }, { createdAt: before, id: { lt: cursor.data.beforeId! } }] } : {},
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -49,5 +49,9 @@ export const GET = organizationRequest(async function(request: Request, { params
     } },
   });
   if (!conversation) return Response.json({ error: "Not found" }, { status: 404 });
-  return Response.json({ messages: conversation.messages.slice(0, 100).reverse(), hasMore: conversation.messages.length > 100, lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
+  const senderUnavailable = conversation.providerCredential
+    ? (!conversation.providerCredential.isActive || conversation.providerCredential.sendingBlocked ? "המספר השולח מנותק או חסום. יש לבדוק את החיבור בהגדרות" : null)
+    : conversation.providerCredentialId === null && await prisma.providerCredential.findFirst({ where: { isActive: true, provider: "meta_whatsapp_cloud_api" }, select: { id: true } })
+      ? "זו שיחת הדגמה. יש לפתוח שיחה דרך מספר WhatsApp מחובר" : null;
+  return Response.json({ senderUnavailable, messages: conversation.messages.slice(0, 100).reverse(), hasMore: conversation.messages.length > 100, lastInboundAt: conversation.lastInboundAt }, { headers: { "Cache-Control": "private, no-store" } });
 });

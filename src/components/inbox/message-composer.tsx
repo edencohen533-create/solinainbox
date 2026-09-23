@@ -11,8 +11,8 @@ import { renderTemplate, templateParameterKeys } from "@/lib/campaigns";
 import type { MessageItem } from "@/types/domain";
 
 type Template = { id: string; name: string; body: string; language?: string };
-export function MessageComposer({ conversationId, disabled, disabledReason, onSent }: {
-  conversationId: string; disabled?: boolean; disabledReason?: string; onSent?: (message: MessageItem) => void;
+export function MessageComposer({ conversationId, disabled, disabledReason, senderUnavailable, onSent }: {
+  conversationId: string; disabled?: boolean; disabledReason?: string; senderUnavailable?: string | null; onSent?: (message: MessageItem) => void;
 }) {
   const draftWrites = useRef<Promise<void>>(Promise.resolve());
   const draftEdited = useRef(false);
@@ -27,7 +27,7 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
   const [templateId, setTemplateId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
   const template = templates?.find((t) => t.id === templateId);
-  const canSend = showTemplates ? !!template && templateParameterKeys(template.body).every((key) => variables[key]?.trim()) : !disabled && (!!value.trim() || !!file);
+  const canSend = !senderUnavailable && (showTemplates ? !!template && templateParameterKeys(template.body).every((key) => variables[key]?.trim()) : !disabled && (!!value.trim() || !!file));
 
   // Serialize saves and clears: a slow clear after sending must never overwrite
   // the next message the agent has already started drafting.
@@ -86,6 +86,7 @@ export function MessageComposer({ conversationId, disabled, disabledReason, onSe
     finally { setIsSending(false); }
   }
   return <div className="space-y-2 border-t p-3">
+    {senderUnavailable && <p role="alert" className="text-sm text-destructive">{senderUnavailable}</p>}
     {disabled && <p className="text-sm text-muted-foreground">{disabledReason ?? "חלון המענה הסתיים — יש להשתמש בתבנית מאושרת."}</p>}
     <Button size="sm" variant="outline" onClick={loadTemplates}>{showTemplates ? "סגור תבניות" : "שליחת תבנית מאושרת"}</Button>
     {showTemplates ? <div className="space-y-2">

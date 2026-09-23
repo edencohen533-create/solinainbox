@@ -36,6 +36,9 @@ export function ConversationListPane({ initialConversations }: { initialConversa
   const [conversations, setConversations] = useState<ConversationListItem[] | null>(initialConversations);
 
   const filter = searchParams.get("filter");
+  const [senderFilter, setSenderFilter] = useState("");
+  const [senders, setSenders] = useState<{ id: string; label: string }[]>([]);
+  useEffect(() => { fetch("/api/whatsapp/senders").then((res) => res.ok ? res.json() : null).then((data) => { if (data) setSenders(data.senders); }).catch(() => {}); }, []);
   const search = searchParams.get("search") ?? "";
   const statusParam = filter && ["open", "pending", "resolved", "all", "mine", "unassigned"].includes(filter) ? filter : undefined;
 
@@ -49,6 +52,7 @@ export function ConversationListPane({ initialConversations }: { initialConversa
     fetching.current = true;
     try {
     const params = new URLSearchParams();
+    if (senderFilter) params.set("providerCredentialId", senderFilter);
     if (search) params.set("search", search);
     if (statusParam === "open") params.set("status", "OPEN");
     if (statusParam === "pending") params.set("status", "PENDING");
@@ -62,20 +66,20 @@ export function ConversationListPane({ initialConversations }: { initialConversa
     const data = await res.json();
     setConversations(data.conversations);
     } finally { fetching.current = false; }
-  }, [statusParam, search]);
+  }, [statusParam, search, senderFilter]);
 
   // Skip the redundant initial fetch when unfiltered — the server already
   // rendered that exact data into `initialConversations`. Any other filter
   // (or a later change back to unfiltered) still fetches normally.
   const skippedInitialFetch = useRef(false);
   useEffect(() => {
-    if (!skippedInitialFetch.current && statusParam === undefined && !search) {
+    if (!skippedInitialFetch.current && statusParam === undefined && !search && !senderFilter) {
       skippedInitialFetch.current = true;
       return;
     }
     skippedInitialFetch.current = true;
     void fetchConversations().catch(() => {});
-  }, [fetchConversations, statusParam, search]);
+  }, [fetchConversations, statusParam, search, senderFilter]);
 
   useRealtimeChannel(
     INBOX_CHANNEL,
@@ -86,6 +90,7 @@ export function ConversationListPane({ initialConversations }: { initialConversa
 
   return (
     <div className={cn("h-full w-full shrink-0 flex-col overflow-hidden border-e md:flex md:w-80", activeId ? "hidden" : "flex")}>
+      {senders.length > 0 && <select aria-label="סינון שיחות לפי מספר" className="m-2 rounded border p-2 text-sm" value={senderFilter} onChange={(event) => setSenderFilter(event.target.value)}><option value="">כל המספרים הנגישים</option>{senders.map((sender) => <option key={sender.id} value={sender.id}>{sender.label}</option>)}</select>}
       <div className="flex-1 overflow-y-auto">
         {conversations === null && (
           <div className="space-y-2 p-3">
@@ -125,6 +130,7 @@ export function ConversationListPane({ initialConversations }: { initialConversa
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">
                   <Ltr>{conversation.contact.phone}</Ltr>
                 </div>
+                {conversation.providerCredential && <p className="text-xs text-muted-foreground">דרך: {conversation.providerCredential.label || conversation.providerCredential.displayPhoneNumber || "WhatsApp"}</p>}
                 {lastMessage?.body && (
                   <p className="mt-1 truncate text-xs text-muted-foreground">{lastMessage.body}</p>
                 )}

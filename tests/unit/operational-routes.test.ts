@@ -26,7 +26,7 @@ describe("operational routes", () => {
   it("never writes a note into another agent's conversation", async () => {
     db.conversation.findFirst.mockResolvedValue(null);
     expect((await note(post({ body: "internal" }), params)).status).toBe(404);
-    expect(db.conversation.findFirst.mock.calls[0][0].where.AND).toEqual([{ OR: [{ assignedAgentId: "agent" }, { assignedAgentId: null }] }]);
+    expect(db.conversation.findFirst.mock.calls[0][0].where.AND).toEqual([{ OR: [{ assignedAgentId: "agent" }, { assignedAgentId: null }] }, { OR: [{ providerCredentialId: null }, { providerCredential: { teamId: null } }] }]);
     expect(db.note.create).not.toHaveBeenCalled();
   });
   it("links internal notes to the CRM contact without creating a WhatsApp message", async () => {

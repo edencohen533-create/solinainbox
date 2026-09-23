@@ -1,5 +1,6 @@
 const { currentSession } = vi.hoisted(() => ({ currentSession: { user: { id: "tenant-a-user", role: "ADMIN", organizationId: "qa-tenant-a" }, expires: "2099-01-01" } }));
 vi.mock("@/lib/auth", () => ({ auth: async () => currentSession }));
+import { GET as attachmentGET } from "@/app/api/attachments/[id]/route";
 import { GET as contactGET } from "@/app/api/contacts/[id]/route";
 import { POST as messagePOST } from "@/app/api/conversations/[id]/messages/route";
 import { GET as exportGET } from "@/app/api/contacts/export/route";
@@ -44,6 +45,7 @@ describe("PostgreSQL business isolation (real database, synthetic records)", () 
       await expect(prisma.contact.create({ data: { organizationId: "qa-tenant-b", name: "forged", phone: "+972509998800" } })).rejects.toThrow();
       await expect(prisma.conversation.create({ data: { contactId: "tenant-b-contact" } })).rejects.toThrow();
       await expect(prisma.conversation.update({ where: { id: "tenant-a-conversation" }, data: { assignedAgentId: "tenant-b-user" } })).rejects.toThrow();
+      await expect(prisma.conversation.update({ where: { id: "tenant-a-conversation" }, data: { providerCredentialId: "tenant-b-credential" } })).rejects.toThrow();
       await expect(prisma.note.create({ data: { conversationId: "tenant-b-conversation", authorId: "tenant-a-user", body: "forged nested relationship" } })).rejects.toThrow();
       await expect(prisma.message.create({ data: { conversationId: "tenant-a-conversation", direction: "OUTBOUND", type: "TEXT", providerCredentialId: "tenant-b-credential" } })).rejects.toThrow();
     });
@@ -63,6 +65,11 @@ describe("PostgreSQL business isolation (real database, synthetic records)", () 
     expect(result[0].current_user).not.toBe("solina_runtime");
   });
   it("enforces isolation through actual API handlers with authenticated session fixtures", async () => {
+    await scope("b", async () => {
+      await prisma.message.upsert({ where: { id: "tenant-b-media-message" }, update: {}, create: { id: "tenant-b-media-message", conversationId: "tenant-b-conversation", direction: "INBOUND", type: "IMAGE", attachments: { create: { id: "tenant-b-attachment", providerMediaId: "synthetic-media", url: "/api/attachments/tenant-b-attachment", mimeType: "image/png" } } } });
+    });
+    const foreignFile = await attachmentGET(new Request("https://qa/api/attachments/tenant-b-attachment"), { params: Promise.resolve({ id: "tenant-b-attachment" }) });
+    expect(foreignFile.status).toBe(404);
     const foreign = await contactGET(new Request("https://qa/api/contacts/tenant-b-contact"), { params: Promise.resolve({ id: "tenant-b-contact" }) });
     expect(foreign.status).toBe(404);
     const send = await messagePOST(new Request("https://qa/api/conversations/tenant-b-conversation/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body: "must not send", requestKey: "cross-tenant-qa" }) }), { params: Promise.resolve({ id: "tenant-b-conversation" }) });

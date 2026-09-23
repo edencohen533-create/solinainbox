@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { organizationRequest } from "@/lib/organization-request";
 import { MetaConnectionError } from "@/server/services/meta-connection-service";
 import { NextResponse } from "next/server";
@@ -22,12 +23,12 @@ export const POST = organizationRequest(async function(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const parsed = metaProviderConfigSchema.safeParse(await request.json().catch(() => null));
+  const parsed = metaProviderConfigSchema.extend({ label: z.string().trim().max(100).optional(), teamId: z.string().min(1).nullable().optional(), makeDefault: z.boolean().optional() }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  try { await activateMetaProvider(parsed.data, session.user.id); }
+  try { const { label, teamId, makeDefault, ...config } = parsed.data; await activateMetaProvider(config, session.user.id, { label, teamId, makeDefault }); }
   catch (error) {
     if (error instanceof MetaConnectionError) return NextResponse.json({ error: error.message }, { status: 422 });
     throw error;

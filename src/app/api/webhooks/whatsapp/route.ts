@@ -37,7 +37,12 @@ export async function POST(request: Request) {
   // Inactive credentials still receive delivery receipts. Phone bindings are globally unique and never transferred automatically.
   for (const { credential, provider } of providers) {
     if (!await systemDatabase.organization.findFirst({ where: { id: credential.organizationId, isActive: true }, select: { id: true } })) continue;
-    try { await withOrganization(credential.organizationId, () => provider.receiveWebhook(parsed.data)); }
+    try { await withOrganization(credential.organizationId, async () => {
+      await provider.receiveWebhook(parsed.data);
+      // A signed, schema-valid provider event was processed for this number.
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.providerCredential.update({ where: { id: credential.id }, data: { lastWebhookAt: new Date() } });
+    }); }
     catch (error) {
       if (error instanceof InvalidWebhookError) return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
       throw error;

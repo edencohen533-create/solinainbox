@@ -34,7 +34,8 @@ cp .env.example .env
 ### 3. סכמה ונתוני דמו
 
 ```bash
-npx prisma db push      # יוצר את כל הטבלאות ב-Supabase
+npx prisma db push      # התקנה חדשה בלבד; בשדרוג משתמשים במיגרציות
+npx prisma db execute --schema prisma/schema.prisma --file scripts/organization-security.sql
 npm run prisma:seed     # מאכלס 7 משתמשים, 150 אנשי קשר, 80 שיחות, תבניות ועוד
 ```
 
@@ -154,7 +155,7 @@ Webhook ללא חתימה תקינה נדחה. אירועי מסירה מאוח�
 ונשללה גישה ישירה של `anon`/`authenticated` לכל 18 טבלאות האפליקציה. Prisma ממשיך
 להתחבר דרך משתמש שרת מורשה. אין להוסיף מדיניות `USING (true)` כדי להעלים הודעות INFO.
 פרטי התיקון והאימות נמצאים ב־[דוח התיקון](docs/security-remediation-2026-09-23.md).
-בפרויקט חדש יש להריץ את `prisma/changes/security-baseline.sql` אחרי יצירת הסכמה.
+בפרויקט חדש יש להריץ את `scripts/organization-security.sql` אחרי יצירת הסכמה באמצעות `prisma db push`. הקובץ מגדיר RLS, הרשאות runtime וקשרים המונעים ערבוב עסקים. בשדרוג מערכת קיימת משתמשים במיגרציות שב־`supabase/migrations`, ולא ב־db push.
 
 השינויים בקוד כוללים בדיקת משתמש פעיל ותפקיד עדכני בכל אימות session, הגבלת
 שינויי שיחות ושיוכים להיקף הנציג והסרת שדות סיסמה מתשובות. תוכן ההודעות נטען
