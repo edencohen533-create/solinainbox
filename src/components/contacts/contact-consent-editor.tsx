@@ -14,7 +14,7 @@ export function ContactConsentEditor({ contactId, initialStatus, initialBlocked 
     <Button variant="outline" disabled={busy || (status === initialStatus && blocked === initialBlocked && !evidence)} onClick={async () => {
       setBusy(true);
       try {
-        const response = await fetch(`/api/contacts/${contactId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consentStatus: status, isBlocked: blocked, consentEvidence: evidence, consentSource: "manual" }) });
+        const response = await fetch(`/api/contacts/${contactId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isBlocked: blocked, ...((status !== initialStatus || evidence) ? { consentStatus: status, consentEvidence: evidence, consentSource: "manual" } : {}) }) });
         if (!response.ok) throw new Error();
         toast.success("ההסכמה עודכנה"); router.refresh();
       } catch { toast.error("לא ניתן לעדכן הסכמה"); } finally { setBusy(false); }

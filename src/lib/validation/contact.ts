@@ -10,7 +10,8 @@ export const contactSchema = z.object({
   consentEvidence: z.string().trim().max(1000).optional(),
   consentSource: z.string().trim().max(200).optional(),
   consentStatus: z.enum(ConsentStatus),
-  tagIds: z.array(z.string()),
+  tagIds: z.array(z.string().min(1)).max(100).refine((ids) => new Set(ids).size === ids.length, "תגיות כפולות"),
+  customFields: z.array(z.object({ key: z.string().trim().min(1).max(100), value: z.string().max(2000) })).max(50).refine((fields) => new Set(fields.map((field) => field.key)).size === fields.length, "שמות שדות חייבים להיות ייחודיים").optional(),
 });
 
 export type ContactInput = z.infer<typeof contactSchema>;

@@ -1,3 +1,4 @@
+import { InternalNotes } from "@/components/inbox/internal-notes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -58,6 +59,8 @@ export default async function ConversationPage({
         agents={agents}
         isSpam={conversation.isSpam}
       />
+      <div className="flex items-center justify-between border-b px-3 py-2 text-sm"><span>{conversation.contact.name}</span><Link className="underline" href={`/contacts/${conversation.contactId}`}>כרטיס לקוח והסרה מדיוור</Link></div>
+      <InternalNotes conversationId={conversation.id} notes={conversation.notes.map((note) => ({ id: note.id, body: note.body, createdAt: note.createdAt.toISOString(), author: { name: note.author.name } }))} />
       <div className="flex min-h-0 flex-1">
       <ChatPanel
         key={conversation.id}

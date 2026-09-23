@@ -82,6 +82,7 @@ export async function createContact(input: ContactInput, actorUserId: string) {
       consentSource: input.consentSource || "manual",
       consentScope: "marketing",
       consentEvidence: input.consentEvidence,
+      customFields: input.customFields ? { create: input.customFields } : undefined,
       tags: { create: input.tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })) },
     },
   });
@@ -100,6 +101,8 @@ export async function createContact(input: ContactInput, actorUserId: string) {
 export async function updateContact(id: string, input: Partial<ContactInput>, actorUserId: string, session: Session) {
   const data: Prisma.ContactUpdateInput = {};
 
+  if (input.customFields !== undefined) data.customFields = { deleteMany: {}, create: input.customFields };
+  if (input.tagIds !== undefined) data.tags = { deleteMany: {}, create: input.tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })) };
   if (input.name !== undefined) data.name = input.name;
   if (input.email !== undefined) data.email = input.email || null;
   if (input.source !== undefined) data.source = input.source;

@@ -1,3 +1,4 @@
+import { personalizeVariables } from "@/lib/campaigns";
 import { prisma } from "@/lib/prisma";
 import {
   AutomationActionType,
@@ -5,6 +6,7 @@ import {
   AutomationTrigger,
   ConversationStatus,
   Role,
+  MessageStatus,
   type Prisma,
 } from "@prisma/client";
 import { createOutboundMessage } from "@/server/services/message-service";
@@ -25,6 +27,7 @@ export async function listRuns() {
 interface TriggerContext {
   conversationId?: string;
   tagId?: string;
+  runId?: string;
 }
 
 
@@ -61,6 +64,8 @@ export async function evaluateTrigger(trigger: AutomationTrigger, context: Trigg
 export async function runRule(ruleId: string, context: TriggerContext): Promise<void> {
   const rule = await prisma.automationRule.findUniqueOrThrow({ where: { id: ruleId } });
 
+  if (!rule.isActive) return;
+
   const run = await prisma.automationRun.create({
     data: {
       ruleId: rule.id,
@@ -71,7 +76,7 @@ export async function runRule(ruleId: string, context: TriggerContext): Promise<
   });
 
   try {
-    const result = await executeAction(rule.actionType, rule.actionConfig as Record<string, unknown>, context);
+    const result = await executeAction(rule.actionType, rule.actionConfig as Record<string, unknown>, { ...context, runId: run.id });
     await prisma.automationRun.update({
       where: { id: run.id },
       data: { status: AutomationRunStatus.COMPLETED, result: result as Prisma.InputJsonValue, completedAt: new Date() },
@@ -93,6 +98,8 @@ export async function scheduleNoReplyChecks(conversationId: string): Promise<voi
     where: { trigger: AutomationTrigger.NO_REPLY_TIMEOUT, isActive: true },
   });
 
+  const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { lastInboundAt: true } });
+  if (!conversation?.lastInboundAt) return;
   for (const rule of rules) {
     const minutes = (rule.triggerConfig as { minutes?: number }).minutes ?? 30;
     await prisma.automationRun.create({
@@ -101,7 +108,13 @@ export async function scheduleNoReplyChecks(conversationId: string): Promise<voi
         conversationId,
         status: AutomationRunStatus.PENDING,
         scheduledFor: new Date(Date.now() + minutes * 60_000),
-        triggerPayload: { conversationId } as Prisma.InputJsonValue,
+        triggerPayload: {
+          conversationId,
+          inboundAt: conversation.lastInboundAt.toISOString(),
+          // Pending runs retain the action that was configured when scheduled.
+          actionType: rule.actionType,
+          actionConfig: rule.actionConfig,
+        } as Prisma.InputJsonValue,
       },
     });
   }
@@ -165,7 +178,8 @@ export async function executeAction(
       const reply = await prisma.cannedReply.findUnique({ where: { id: cannedReplyId } });
       if (!reply) return { skipped: "canned reply not found" };
       const sentByUserId = await getSystemActorId();
-      const { message } = await createOutboundMessage({ conversationId, body: reply.body, sentByUserId, automated: true });
+      const { message } = await createOutboundMessage({ conversationId, body: reply.body, sentByUserId, automated: true, requestKey: context.runId ? `automation:${context.runId}` : undefined });
+      assertAccepted(message);
       return { messageId: message.id };
     }
 
@@ -175,17 +189,28 @@ export async function executeAction(
       const template = await prisma.template.findUnique({ where: { id: templateId } });
       if (!template) return { skipped: "template not found" };
       const sentByUserId = await getSystemActorId();
+      const contact = await prisma.conversation.findUniqueOrThrow({ where: { id: conversationId }, select: { contact: { select: { name: true } } } });
+      const variables = personalizeVariables((config.variables ?? {}) as Record<string, string>, contact.contact.name);
       const { message } = await createOutboundMessage({
         conversationId,
         body: template.body,
         sentByUserId,
         templateId: template.id,
         automated: true,
+        templateVariables: variables,
+        requestKey: context.runId ? `automation:${context.runId}` : undefined,
       });
+      assertAccepted(message);
       return { messageId: message.id };
     }
 
     default:
       return { skipped: "unknown action type" };
+  }
+}
+
+function assertAccepted(message: { status: MessageStatus; errorReason?: string | null }) {
+  if (!new Set<MessageStatus>([MessageStatus.ACCEPTED, MessageStatus.SENT, MessageStatus.DELIVERED, MessageStatus.READ]).has(message.status)) {
+    throw new Error(message.errorReason || "השליחה לא אושרה על ידי הספק; אין לבצע ניסיון חוזר אוטומטי");
   }
 }

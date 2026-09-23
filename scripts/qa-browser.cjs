@@ -19,7 +19,26 @@ fs.mkdirSync(artifactDir, { recursive: true });
     await page.waitForURL('**/inbox');
     return { page, context, request: context.request };
   }
+  async function verifyHistory(a) {
+    const historyList = (await (await a.request.get('/api/conversations?search=QA%20history%20pagination')).json()).conversations;
+    assert.equal(historyList.length, 1);
+    await a.page.goto(`/inbox/${historyList[0].id}`);
+    await a.page.getByText('QA history 105', { exact: true }).waitFor({ state: 'attached' });
+    assert.equal(await a.page.getByText('QA history 000', { exact: true }).count(), 0);
+    await a.page.getByRole('button', { name: 'טען הודעות קודמות', exact: true }).scrollIntoViewIfNeeded();
+    const anchorBefore = await a.page.getByText('QA history 105', { exact: true }).boundingBox();
+    await a.page.getByRole('button', { name: 'טען הודעות קודמות', exact: true }).click();
+    await a.page.getByText('QA history 005', { exact: true }).waitFor({ state: 'attached' });
+    const anchorAfter = await a.page.getByText('QA history 105', { exact: true }).boundingBox();
+    assert.ok(Math.abs(anchorAfter.y - anchorBefore.y) < 60, 'pagination should preserve visible history position');
+    await a.page.getByRole('button', { name: 'טען הודעות קודמות', exact: true }).click();
+    await a.page.getByText('QA history 000', { exact: true }).waitFor({ state: 'attached' });
+    assert.equal(await a.page.getByRole('button', { name: 'טען הודעות קודמות', exact: true }).count(), 0);
+    assert.equal(await a.page.locator('p.whitespace-pre-wrap').filter({ hasText: /^QA history/ }).count(), 205);
+    console.log('PASS three history pages with 205 equal-timestamp messages; no gaps or duplicates');
+  }
   try {
+    if (process.argv.includes('--history-only')) { await verifyHistory(await login('qa-agent-a')); assert.deepEqual(errors, []); return; }
     const admin = await login('qa-admin'); console.log('PASS browser login ADMIN');
     const created = await admin.request.post('/api/contacts', { data: { name: 'QA browser lead', phone: '+97250' + String(Date.now()).slice(-7), consentStatus: 'OPTED_IN', tagIds: [] } });
     assert.equal(created.status(), 201);
@@ -64,9 +83,40 @@ fs.mkdirSync(artifactDir, { recursive: true });
     assert.equal((await draftSaved).status(), 200);
     await a.page.reload();
     await a.page.getByPlaceholder('הקלד הודעה...').waitFor();
-    await a.page.waitForFunction(() => document.querySelector('textarea')?.value === 'טיוטת QA לשמירה לאחר רענון');
+    await a.page.waitForFunction(() => document.querySelector('textarea[placeholder="הקלד הודעה..."]')?.value === 'טיוטת QA לשמירה לאחר רענון');
     assert.equal((await b.request.get(`/api/conversations/${id}/draft`)).status(), 404);
     console.log('PASS private draft survives refresh and rejects another agent');
+    assert.equal((await b.request.post(`/api/conversations/${id}/notes`, { data: { body: 'אסור' } })).status(), 404);
+    await a.page.getByText(/הערות פנימיות לצוות/).click();
+    await a.page.getByRole('textbox', { name: 'הערה פנימית לצוות' }).fill('QA הערה פנימית שאינה נשלחת ללקוח');
+    const noteSaved = a.page.waitForResponse((r) => r.url().endsWith(`/api/conversations/${id}/notes`) && r.request().method() === 'POST');
+    await a.page.getByRole('button', { name: 'שמור הערה', exact: true }).click();
+    assert.equal((await noteSaved).status(), 201);
+    await a.page.getByText('QA הערה פנימית שאינה נשלחת ללקוח', { exact: true }).waitFor();
+    const messageHistory = await (await a.request.get(`/api/conversations/${id}/messages`)).json();
+    assert.equal(messageHistory.messages.some((m) => m.body === 'QA הערה פנימית שאינה נשלחת ללקוח'), false);
+    await a.page.getByRole('link', { name: 'כרטיס לקוח והסרה מדיוור' }).click();
+    await a.page.getByText('עריכת פרטי לקוח, תגיות ושדות מותאמים', { exact: true }).click();
+    await a.page.getByLabel('מקור ליד', { exact: true }).fill('QA WhatsApp');
+    await a.page.getByRole('button', { name: 'הוסף שדה', exact: true }).click();
+    await a.page.getByRole('textbox', { name: 'שם שדה 1', exact: true }).fill('מוצר');
+    await a.page.getByRole('textbox', { name: 'ערך שדה 1', exact: true }).fill('QA CRM');
+    const detailsSaved = a.page.waitForResponse((r) => r.url().endsWith(`/api/contacts/${contactId}`) && r.request().method() === 'PATCH');
+    await a.page.getByRole('button', { name: 'שמור פרטי לקוח', exact: true }).click();
+    assert.equal((await detailsSaved).status(), 200);
+    const updatedContact = (await (await a.request.get(`/api/contacts/${contactId}`)).json()).contact;
+    assert.equal(updatedContact.source, 'QA WhatsApp');
+    assert.equal(updatedContact.customFields[0].value, 'QA CRM');
+    assert.equal(updatedContact.notes.some((n) => n.body === 'QA הערה פנימית שאינה נשלחת ללקוח'), true);
+    assert.equal((await a.request.get('/api/contacts/export')).status(), 403);
+    const exported = await admin.request.get('/api/contacts/export?search=QA%20browser%20lead');
+    assert.equal(exported.status(), 200); assert.ok((await exported.text()).includes('QA browser lead'));
+    assert.equal((await a.request.post('/api/automations/stop')).status(), 403);
+    await a.page.screenshot({ path: `${artifactDir}/crm-editor.png`, fullPage: true, animations: 'disabled' });
+    console.log('PASS internal notes and CRM edit persist, stay out of messages, enforce agent/export permissions');
+    await verifyHistory(a);
+
+
     await a.page.screenshot({ path: `${artifactDir}/inbox-desktop.png`, fullPage: true, animations: "disabled" });
     console.log('PASS inbound polling enables service reply and outbound message renders');
     await admin.page.goto('/templates');
@@ -96,6 +146,17 @@ fs.mkdirSync(artifactDir, { recursive: true });
     await admin.page.screenshot({ path: `${artifactDir}/campaign-preflight.png`, fullPage: true, animations: 'disabled' });
     await admin.page.getByRole('button', { name: 'סגור סיכום' }).click();
     console.log('PASS campaign preflight UI with real eligibility/exclusion counts (not activated)');
+    const duplicated = await admin.request.post(`/api/campaigns/${draftCampaign.id}/duplicate`);
+    assert.equal(duplicated.status(), 201);
+    const copy = (await duplicated.json()).campaign;
+    assert.equal(copy.status, 'DRAFT'); assert.equal(copy.scheduledAt, null); assert.notEqual(copy.id, draftCampaign.id);
+    assert.equal((await a.request.post(`/api/campaigns/${draftCampaign.id}/duplicate`)).status(), 403);
+    const rule = await admin.request.post('/api/automations', { data: { name: 'QA stop rule', trigger: 'NO_REPLY_TIMEOUT', triggerConfig: { minutes: 30 }, actionType: 'ADD_INTERNAL_NOTE', actionConfig: { body: 'QA only' }, isActive: true } });
+    assert.equal(rule.status(), 201);
+    const stopped = await admin.request.post('/api/automations/stop');
+    assert.equal(stopped.status(), 200); assert.ok((await stopped.json()).stoppedRules >= 1);
+    console.log('PASS campaign duplication remains draft; manager stop-all disables rules');
+
     await admin.page.getByRole('button', { name: /רשימות תפוצה \(/ }).click();
     await admin.page.getByLabel('שם הרשימה המיובאת').fill('QA mapped import');
     await admin.page.getByLabel('קובץ אנשי קשר CSV').setInputFiles({ name: 'qa.csv', mimeType: 'text/csv', buffer: Buffer.from('customer,mobile,permission\nQA mapped,+972509999900,UNKNOWN\nBad,wrong,UNKNOWN') });

@@ -126,3 +126,14 @@ it("blocks a revoked Meta token", async () => {
   // Only this synthetic provider is reset, not production.
   await prisma.providerCredential.updateMany({ where: { isActive: true }, data: { sendingBlocked: false } });
 });
+it("loads only the newest 100 messages with stable ordering from a 205-message history", async () => {
+  const contact = await prisma.contact.create({ data: { name: "QA history pagination", phone: "+972509990090" } });
+  const conversation = await prisma.conversation.create({ data: { contactId: contact.id, assignedAgentId: "qa-agent-a", source: "MOCK" } });
+  const createdAt = new Date("2026-09-01T10:00:00Z");
+  await prisma.message.createMany({ data: Array.from({ length: 205 }, (_, index) => ({ id: `qa-history-${String(index).padStart(3, "0")}`, conversationId: conversation.id, direction: "INBOUND" as const, type: "TEXT" as const, body: `QA history ${String(index).padStart(3, "0")}`, status: "DELIVERED" as const, createdAt })) });
+  const loaded = await getConversationForUser(agentA, conversation.id);
+  expect(loaded?.messages).toHaveLength(100);
+  expect(loaded?.messages[0].id).toBe("qa-history-105");
+  expect(loaded?.messages.at(-1)?.id).toBe("qa-history-204");
+  expect(await getConversationForUser(agentB, conversation.id)).toBeNull();
+});

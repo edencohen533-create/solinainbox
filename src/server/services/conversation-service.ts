@@ -69,13 +69,15 @@ export async function getConversationForUser(session: Session, conversationId: s
       assignedAgent: { select: { id: true, name: true } },
       tags: { include: { tag: true } },
       messages: {
-        orderBy: { createdAt: "asc" },
+        take: 100,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: { attachments: true, sentByUser: { select: { id: true, name: true } }, template: true },
       },
       notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { id: true, name: true } } } },
     },
   });
 
+  if (conversation) conversation.messages.reverse();
   return conversation;
 }
 

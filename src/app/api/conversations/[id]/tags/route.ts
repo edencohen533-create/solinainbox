@@ -26,11 +26,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const { tagId } = parsed.data;
 
-  await prisma.conversationTag.upsert({
-    where: { conversationId_tagId: { conversationId, tagId } },
-    update: {},
-    create: { conversationId, tagId },
-  });
+  if (!await prisma.tag.findUnique({ where: { id: tagId }, select: { id: true } })) return NextResponse.json({ error: "Tag not found" }, { status: 404 });
+  const added = await prisma.conversationTag.createMany({ data: [{ conversationId, tagId }], skipDuplicates: true });
+  if (!added.count) return NextResponse.json({ ok: true });
 
   await writeAuditLog({
     actorUserId: session.user.id,

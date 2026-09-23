@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { isSameDay } from "date-fns";
 import { MessageBubble } from "./message-bubble";
 import { DateSeparator } from "./date-separator";
@@ -26,6 +28,36 @@ export function ChatPanel({
   const [messages, setMessages] = useState<MessageItem[]>(initialMessages);
   const [accessRevoked, setAccessRevoked] = useState(false);
   const [windowClosed, setWindowClosed] = useState(composerDisabled);
+  const [hasMore, setHasMore] = useState(initialMessages.length === 100);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const restoreScroll = useRef<{ height: number; top: number } | null>(null);
+  async function loadOlder() {
+    if (loadingOlder || !messages[0]) return;
+    setLoadingOlder(true);
+    try {
+      const first = messages[0];
+      const response = await fetch(`/api/conversations/${conversationId}/messages?${new URLSearchParams({ before: first.createdAt, beforeId: first.id })}`, { cache: "no-store" });
+      if (response.status === 404 || response.status === 401) { setAccessRevoked(true); setMessages([]); return; }
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      if (scrollRef.current) restoreScroll.current = { height: scrollRef.current.scrollHeight, top: scrollRef.current.scrollTop };
+      setMessages((current) => {
+        const byId = new Map(current.map((message) => [message.id, message]));
+        for (const message of data.messages as MessageItem[]) if (!byId.has(message.id)) byId.set(message.id, message);
+        return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      });
+      setHasMore(data.hasMore);
+    } catch { toast.error("טעינת ההיסטוריה נכשלה. ניתן לנסות שוב"); }
+    finally { setLoadingOlder(false); }
+  }
+  useLayoutEffect(() => {
+    if (restoreScroll.current && scrollRef.current) {
+      scrollRef.current.scrollTop = restoreScroll.current.top + scrollRef.current.scrollHeight - restoreScroll.current.height;
+      restoreScroll.current = null;
+    }
+  }, [messages]);
+  const lastMessageId = messages.at(-1)?.id;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useRealtimeChannel(conversationChannel(conversationId), (event) => {
@@ -65,13 +97,14 @@ export function ChatPanel({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [lastMessageId]);
 
   if (accessRevoked) return <p className="p-4">אין הרשאה להציג שיחה זו. ייתכן שהיא הועברה לנציג אחר.</p>;
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+        {hasMore && <Button variant="outline" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? "טוען היסטוריה…" : "טען הודעות קודמות"}</Button>}
         {messages.map((message, index) => {
           const prev = messages[index - 1];
           const showSeparator = !prev || !isSameDay(new Date(prev.createdAt), new Date(message.createdAt));
