@@ -23,7 +23,8 @@ Fresh installations must apply `scripts/organization-security.sql` after schema 
 
 ## Evidence
 
-- Unit suite and TypeScript/lint/build checked; final totals recorded after integration run.
+- 152 tests in 32 unit/integration files passed; TypeScript, ESLint and webpack production build passed.
+- All 17 real PostgreSQL/API/worker tests in 3 files passed in 1030.42 seconds. Graph HTTP is mocked; database constraints, tenant runtime role, leases and service calls are real.
 - `tests/unit/sender-pinning.test.ts`: pinned sender fail-closed, demo/live separation, original credential for historical media, stable fingerprint on default/team/label edits, team-scoped sender choices without secrets.
 - `tests/qa/multiple-numbers.test.ts`: real isolated PostgreSQL + mocked Graph requests for two numbers, same-contact thread separation, direct agent denials, campaign pinning, default change, disconnect/reconnect, team transfer and WABA/default constraints.
 - `scripts/qa-number-migration.cjs`: cloned QA tables transformed to old schema, synthetic unambiguous/ambiguous/demo history, real migration applied and assertions checked inside a transaction that is deliberately rolled back. Passed; probe schema absent afterward.
