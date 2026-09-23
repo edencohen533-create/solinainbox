@@ -1,0 +1,200 @@
+id,section,requirement,status,priority,evidence_or_gap,code_path
+1.01,חיבור וניהול חשבונות,חיבור עסק ומספר,מומש חלקית,P1,הזנת credentials ובדיקת בעלות; אין Embedded Signup/רישום מספר בממשק,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.02,חיבור וניהול חשבונות,מספרים מרובים לעסק,חסר,P1,"ספק פעיל יחיד; מחייב שיוך מספר לשיחות, קבצים ותבניות לפני הרחבה",src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.03,חיבור וניהול חשבונות,שיוך מספר לעסק ולצוות,חסר,P0,אין ישות עסק; Team קיים למשתמשים בלבד. פריסה זו מיועדת לעסק אחד,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.04,חיבור וניהול חשבונות,סטטוס חיבור והרשאות,מומש חלקית,P0,בדיקת Graph קריאה; הגדרה שמורה אינה מוצגת כאימות חיבור נוכחי,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.05,חיבור וניהול חשבונות,תקינות Webhook ושגיאת חיבור אחרונה,מומש חלקית,P1,שגיאה ובדיקה אחרונה נשמרות; הרשמת אפליקציה אינה הוכחת אירוע נכנס,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.06,חיבור וניהול חשבונות,פקיעת טוקן וביטול הרשאה,מומש חלקית,P0,קודי הרשאה מוכרים חוסמים שליחה; אין ניטור expiry יזום,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.07,חיבור וניהול חשבונות,ניתוק וחיבור מחדש ושמירת היסטוריה,מומש חלקית,P0,רשומות נשמרות; קמפיינים מוגנים בשינוי חיבור; קבצי Meta היסטוריים עדיין תלויים בחיבור,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.08,חיבור וניהול חשבונות,איכות ומגבלות חשבון אמיתיות,חסום לבדיקה,P1,אין Meta פעיל; אין מסך quality/throughput ואין ערכים מדומים,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.09,חיבור וניהול חשבונות,הגבלת שליחה וחסימת מספר,מומש חלקית,P0,שגיאות הרשאה/חסימה מוכרות עוצרות; אין backoff אוטומטי ל־rate limit,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.10,חיבור וניהול חשבונות,סודות בצד שרת,מומש ונבדק,P0,API מחזיר מסכה; Prisma בצד שרת; אין מפתחות בתגובות realtime,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+1.11,חיבור וניהול חשבונות,אימות חיבור בפועל,חסום לבדיקה,P0,Graph preflight מדומה נבדק; חיבור Meta אמיתי טרם אומת,src/server/services/provider-credential-service.ts; meta-connection-service.ts; src/server/providers/meta-whatsapp-provider.ts
+2.01,אנשי קשר והסכמה,יצירה ועריכת אנשי קשר,מומש ונבדק,P1,API ושיוך נציג בבדיקות DB וממשק קודמות,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.02,אנשי קשר והסכמה,נרמול טלפונים בינלאומי,מומש ונבדק,P0,libphonenumber-js; בדיקות נרמול ו־CSV,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.03,אנשי קשר והסכמה,זיהוי כפילויות,מומש ונבדק,P0,unique phone וייבוא dedup; הודעות מקבילות משתמשות ב־upsert,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.04,אנשי קשר והסכמה,מיזוג כפילויות והיסטוריה,חסר,P1,אין פעולת merge ואין העברת קשרים/היסטוריה בין contacts,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.05,אנשי קשר והסכמה,שדות מותאמים תגיות מקור ונציג,מומש חלקית,P1,שדות במסד; מקור ותגיות; נציג נגזר משיחה ולא בעלות Contact עצמאית,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.06,אנשי קשר והסכמה,ייבוא CSV מיפוי עמודות ותצוגה מקדימה,מומש חלקית,P1,נוסף API וממשק; parser ו־10k שורות נבדקים; שורות שגויות מונעות commit,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.07,אנשי קשר והסכמה,דוח שגיאות ייבוא,מומש חלקית,P1,מספר שורה ועד 100 פירוטי שגיאות בתצוגה; אין הורדת דוח,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.08,אנשי קשר והסכמה,ייצוא לפי הרשאות,חסר,P1,אין endpoint ייצוא; נדרש escaping לנוסחאות CSV בעת מימוש,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.09,אנשי קשר והסכמה,מקור ותאריך הסכמה,מומש חלקית,P0,נוספו consentAt/source/scope/evidence; רשומות ישנות נשארות ללא אסמכתה,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.10,אנשי קשר והסכמה,היקף ואסמכתה להסכמה,מומש חלקית,P0,שיווקי בלבד ואסמכתה ידנית אופציונלית; לא הוכחת הסכמה חיצונית,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.11,אנשי קשר והסכמה,הסרה וחסימה מרכזית,מומש חלקית,P0,OPTED_OUT לשיווק; isBlocked לכל שליחה; בדיקה חוזרת לפני פנייה לספק,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.12,אנשי קשר והסכמה,בקשות הסרה עברית ואנגלית,מומש ונבדק,P0,מילים מפורשות ופיסוק; אין inference על טקסט חופשי עמום,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.13,אנשי קשר והסכמה,כפתור הסרה,מומש חלקית,P1,טקסט button/interactive נקלט; כפתורי תבנית יוצאים טרם נתמכים במימוש,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.14,אנשי קשר והסכמה,סימון הסרה ידני,מומש חלקית,P0,עורך Contact עם אסמכתה וחסימה מלאה,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.15,אנשי קשר והסכמה,ייבוא חוזר אינו מחזיר לדיוור,מומש ונבדק,P0,createMany skipDuplicates אינו משנה איש קשר קיים,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.16,אנשי קשר והסכמה,זכאות מחדש בזמן שליחה,מומש ונבדק,P0,worker + message service לפני ספק; מרוץ לאחר הבדיקה האחרון עדיין אפשרי,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.17,אנשי קשר והסכמה,הפרדת שירות משיווק,מומש ונבדק,P0,מענה בתוך חלון אפשרי אחרי opt-out שיווקי; חסימה מלאה מונעת הכול,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+3.01,קהלים וסגמנטים,תגיות ושדות מותאמים בסגמנטים,חסר,P1,בחירה ידנית/CSV בלבד,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.02,קהלים וסגמנטים,מקור ליד וסטטוס CRM,חסר,P1,source קיים; אין LeadStage או builder סגמנטים,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.03,קהלים וסגמנטים,סינון קהל לפי נציג,חסר,P1,אין בחירת קהל דינמית לפי שיוך,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.04,קהלים וסגמנטים,רכישות מוצר ותאריך,חסום לבדיקה,P1,אין אינטגרציית רכישות או הזמנות; נדרש מקור CRM,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.05,קהלים וסגמנטים,הודעה ותגובה אחרונה,חסר,P1,נתונים בשיחות; אין תנאים בקהל,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.06,קהלים וסגמנטים,השתתפות ותוצאת קמפיין קודם,חסר,P1,CampaignRecipient שומר היסטוריה; אין מסנן קהלים,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.07,קהלים וסגמנטים,הסכמה והסרה וזכאות,מומש חלקית,P0,בחירת מסכימים ובדיקת preflight/dispatch; לא builder תנאים,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.08,קהלים וסגמנטים,תנאי AND/OR,חסר,P1,אין מנוע סגמנטים,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.09,קהלים וסגמנטים,החרגת קהלים,חסר,P1,רק הסרות וחסימות; אין קהל החרגה מפורש,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.10,קהלים וסגמנטים,שמירת סגמנטים,חסר,P1,רשימות סטטיות נשמרות; אינן סגמנטים דינמיים,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.11,קהלים וסגמנטים,ספירת נמענים לפני שליחה,מומש חלקית,P0,נוסף preflight עם מכנה queued ופירוט החרגות,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.12,קהלים וסגמנטים,מדיניות קהל מתוזמן,מומש ונבדק,P0,"מוקפא ביצירת טיוטה, מוקדם מהתזמון; מוצג בממשק; זכאות נבדקת מחדש",src/server/services/campaign-service.ts; prisma/schema.prisma
+4.01,תבניות,סנכרון מהספק,מומש ונבדק,P0,"Graph מדומה: pagination, סטטוס ו־WABA; בדיקה חיה חסומה",src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.02,תבניות,יצירה והגשה לאישור,מומש ונבדק,P0,תבניות טקסט Marketing/Utility; Graph מדומה; לא נשלחה תבנית אמיתית,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.03,תבניות,שפה קטגוריה וסטטוס,מומש ונבדק,P1,מסד וממשק; default חדש DRAFT,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.04,תבניות,דחייה השהיה והשבתה,מומש חלקית,P0,לא־APPROVED חסום; paused/disabled ממופים REJECTED ללא אבחנה נפרדת,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.05,תבניות,טקסט ומשתנים,מומש ונבדק,P0,משתני גוף מספריים רציפים; סדר ומספר מאומתים,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.06,תבניות,מדיה וכפתורי תבנית,חסר,P1,Meta תומך; המימוש מסמן מבנים שאינם נתמכים ואינו שולח אותם,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.07,תבניות,תצוגה מקדימה ודוגמאות,מומש חלקית,P1,טקסט ודוגמאות ליצירה; נוספו עד 3 נמעני קמפיין,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.08,תבניות,סוגי משתנים,מומש חלקית,P1,טקסט בלבד; אין currency/date/media parameters,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.09,תבניות,ערכי ברירת מחדל,חסר,P1,ערכים קבועים ושם בלבד; אין fallback שדות מותאמים,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.10,תבניות,משתנים לא פתורים,מומש ונבדק,P0,חסימת placeholders לא פתורים בשירות השליחה,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.11,תבניות,שינוי תבנית לאחר תזמון,מומש חלקית,P0,fingerprint והשהיית קמפיין; שינוי מרוחק דורש sync לפני שנודע למערכת,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.12,תבניות,בחירת תבנית או הודעה חופשית,מומש ונבדק,P0,24 שעות ומקור inbound מאומת ל־Meta; אין שימוש בהיסטוריית דמו לפתיחת חלון,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+4.13,תבניות,אין אישור מקומי מזויף,מומש ונבדק,P0,אישור רק מתשובת ספק; ברירת מחדל DRAFT; seed מסומן דמו,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
+5.01,בניית קמפיינים,בחירת מספר שולח,מומש חלקית,P0,מספר פעיל יחיד מוקפא בטיוטה; אין בורר multi-number,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.02,בניית קמפיינים,בחירת קהל והחרגות,מומש חלקית,P1,רשימה סטטית; אין סגמנט/החרגת רשימה,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.03,בניית קמפיינים,בחירת תבנית ושפה,מומש ונבדק,P0,מאושרות בלבד ו־WABA פעיל; שפה מוצגת,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.04,בניית קמפיינים,מיפוי משתנים,מומש חלקית,P1,ערך קבוע ו־{name}; אין שדות custom או fallback,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.05,בניית קמפיינים,צירוף מדיה בקמפיין,חסר,P1,"שליחת מדיה קיימת בשירות, לא בתבניות קמפיין",src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.06,בניית קמפיינים,תצוגה לכמה נמענים,מומש חלקית,P1,נוספה preflight לשלושה נמענים זכאים,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.07,בניית קמפיינים,שליחת בדיקה למספר מאושר,חסר,P0,אין allowlist test-send; לא יבוצעו בדיקות על מספרי לקוחות,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.08,בניית קמפיינים,סיכום לפני הפעלה,מומש חלקית,P0,מסך סיכום וולידציה מחדש בשרת; counts/sender/time/samples,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.09,בניית קמפיינים,שליחה מיידית ותזמון,מומש ונבדק,P0,תור DB ו־cron; DB QA משתמש בספק מדומה,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.10,בניית קמפיינים,מספר זכאים והחרגות וסיבות,מומש חלקית,P0,preflight משקף queued ברגע הבדיקה; עשוי להשתנות לפני dispatch,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.11,בניית קמפיינים,נתונים ומשתנים חסרים,מומש חלקית,P0,מניעת התחלה ודיווח החרגות; אין מיפוי custom,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.12,בניית קמפיינים,שולח זמן ואזור זמן בסיכום,מומש חלקית,P1,PhoneNumberID ואזור הדפדפן; UTC בשרת; אין בחירת timezone עסקי,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.13,בניית קמפיינים,הערכת עלות אמינה,חסום לבדיקה,P1,אין rate card/account billing מאומת; מוצג שאין הערכת עלות,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.14,בניית קמפיינים,טיוטות,מומש ונבדק,P1,Campaign DRAFT נשמר במסד,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.15,בניית קמפיינים,שכפול קמפיין,חסר,P2,אין פעולת duplicate,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.16,בניית קמפיינים,חיפוש והיסטוריה,מומש חלקית,P1,100 קמפיינים אחרונים ופירוט נמענים בעימוד; אין חיפוש היסטוריה מלאה,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+6.01,תזמון ומנוע שליחה,תור עמיד ללא לשונית,מומש ונבדק,P0,CampaignRecipient ו־cron; אינו מבוסס browser timer,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.02,תזמון ומנוע שליחה,אזור זמן ושעות מותרות,מומש חלקית,P1,ISO UTC מתאריך מקומי; אין hours policy או בורר אזור זמן,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.03,תזמון ומנוע שליחה,הגבלת קצב לפי חשבון וספק,מומש חלקית,P0,"20 נמענים להפעלה, deadline 45 שניות; אין limiter מבוזר לפי מכסת ספק",src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.04,תזמון ומנוע שליחה,חלוקה למנות,מומש ונבדק,P0,"take 20; 10,000 נמענים מדומים ב־500 מחזורים",src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.05,תזמון ומנוע שליחה,השהיה המשך וביטול,מומש ונבדק,P0,CAS בשרת ובדיקת מצב לאחר claim,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.06,תזמון ומנוע שליחה,הודעות שהועברו לספק אינן ניתנות לביטול,מומש חלקית,P0,הודעה במעוף יכולה להסתיים אחרי pause; UI מסביר; queued מסומן SKIPPED,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.07,תזמון ומנוע שליחה,retries עם backoff,חסר,P1,אין retry אוטומטי — בטוח מכפילות אך פוגע בזמינות,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.08,תזמון ומנוע שליחה,מספר ניסיונות מוגבל,מומש חלקית,P0,אין retry אוטומטי; אין מנגנון attempt budget לבחירה ידנית,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.09,תזמון ומנוע שליחה,rate limits ותקלות ספק,מומש חלקית,P0,כשל נשמר; הרשאות ידועות חוסמות; rate-limit לא נדחה לתור מחדש,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.10,תזמון ומנוע שליחה,לחיצה כפולה והפעלה מחדש,מומש ונבדק,P0,CAS קמפיין ו־recipient; requestKey להודעות UI; unique DB,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.11,תזמון ומנוע שליחה,התאוששות מקריסת worker,מומש חלקית,P0,PROCESSING ישן עובר UNKNOWN; אין blind retry; בדיקת מצב אחרי קריסה אמיתית חסרה,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.12,תזמון ומנוע שליחה,בידוד עומסים עסקים ומספרים,חסר,P0,עסק אחד ומספר אחד; אין fair scheduling,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.13,תזמון ומנוע שליחה,תדירות שיווק בין קמפיינים ואוטומציות,מומש ונבדק,P0,"CAS על Contact.lastMarketingAt; מדיניות מקומית שמרנית אחת ל־24 שעות, גם כשכשל לא ודאי",src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+6.14,תזמון ומנוע שליחה,timeout אינו exactly-once,מומש ונבדק,P0,UNKNOWN נשמר; requestKey לא נשלח שוב; אין התחייבות exactly-once אצל Meta,src/jobs/campaign-runner.ts; src/server/services/message-service.ts; send-guard.ts
+7.01,סטטוסים ותיעוד,ממתינה ובטיפול,מומש חלקית,P1,Message QUEUED ו־recipient PROCESSING; אין PROCESSING אחיד להודעה,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.02,סטטוסים ותיעוד,התקבלה אצל ספק ונשלחה,מומש חלקית,P0,ACCEPTED חדש לתשובת HTTP; SENT מ־webhook; היסטוריה ישנה אינה ניתנת לסיווג מחדש,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.03,סטטוסים ותיעוד,נמסרה ונקראה,מומש ונבדק,P0,אירועי provider בלבד בחיבור אמיתי; סימולציה מפורשת בדמו,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.04,סטטוסים ותיעוד,נכשלה ובוטלה,מומש חלקית,P1,FAILED כולל reason; ביטול קמפיין SKIPPED ולא סטטוס Message CANCELLED,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.05,סטטוסים ותיעוד,תוצאה לא ודאית,מומש ונבדק,P0,UNKNOWN להודעה ולנמען; אין retry אוטומטי,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.06,סטטוסים ותיעוד,מזהה ספק קמפיין נמען ושולח,מומש חלקית,P0,קשרים קיימים ונוסף providerCredentialId; sender snapshot בקמפיין,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.07,סטטוסים ותיעוד,זמני אירועים וסיבות כשל,מומש חלקית,P1,accepted/sent/delivered/read/failed; אין event ledger לכל callback,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.08,סטטוסים ותיעוד,webhook כפול ולא מסודר,מומש ונבדק,P0,inboundKey unique וסטטוס מונוטוני; callback לפני שמירת provider ID עדיין פער,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.09,סטטוסים ותיעוד,היעדר read אינו הוכחה,מומש ונבדק,P1,אין הסקת אי־קריאה; READ רק באירוע,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.10,סטטוסים ותיעוד,פירוט לכל נמען,מומש ונבדק,P1,API ודף campaign recipients בעימוד,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+7.11,סטטוסים ותיעוד,retry מבוקר לנמען,חסר,P1,אין פעולת resend; UNKNOWN מחייב בירור חיצוני,src/server/services/message-status-service.ts; message-service.ts; prisma/schema.prisma
+8.01,תיבת שיחות,קבלה ותשובה בזמן אמת,מומש חלקית,P0,Webhook/poll 5s/realtime invalidation; ספק חי טרם אומת,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.02,תיבת שיחות,טקסט תמונות מסמכים אודיו וידאו,מומש חלקית,P1,"נתיבי provider/media וולידציה; בדיקות יחידה, בלי roundtrip מכשיר",src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.03,תיבת שיחות,סוג לא נתמך,מומש ונבדק,P1,placeholder טקסט [type] שומר שיחה,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.04,תיבת שיחות,סטטוס לכל הודעה,מומש חלקית,P0,כולל ACCEPTED/UNKNOWN החדשים; יישור ישנים חסום,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.05,תיבת שיחות,מונה לא נקראו,מומש ונבדק,P1,increment פעם אחת להודעה נכנסת ייחודית,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.06,תיבת שיחות,חיפוש שיחות ואנשי קשר,מומש ונבדק,P1,שם/טלפון/טקסט; תוצאות מוגבלות,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.07,תיבת שיחות,סינון נציג צוות תגית מספר סטטוס,מומש חלקית,P1,נציג/תגית/סטטוס; אין מספרים/צוות מבודד,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.08,תיבת שיחות,פתיחה מחדש בהודעה נכנסת,מומש ונבדק,P1,שיחה חדשה פתוחה שומרת נציג קודם פעיל; השיחה הסגורה נשמרת,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.09,תיבת שיחות,שיוך והעברה בין נציגים,מומש ונבדק,P0,הרשאות admin/manager ו־agent scope; בדיקת נציג פעיל,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.10,תיבת שיחות,פתוחה ממתינה סגורה,מומש ונבדק,P1,OPEN/PENDING/RESOLVED/CLOSED,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.11,תיבת שיחות,הערות פנימיות,מומש חלקית,P1,Note במסד ושירות; נדרש QA מלא של עריכה/UI,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.12,תיבת שיחות,תשובות שמורות,מומש חלקית,P1,CannedReply ואוטומציות; אין בורר מלא במלחין,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.13,תיבת שיחות,טיוטות בעת ניווט ורענון,מומש חלקית,P1,API פרטי למשתמש ושיחה; שמירת טקסט debounce; מדיה ותבניות לא נשמרות,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.14,תיבת שיחות,הצגת חלון מענה,מומש ונבדק,P0,UI ושרת; template תמיד זמין רק עם אישור,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.15,תיבת שיחות,מניעת תשובה כפולה של נציגים,מומש חלקית,P0,lease מבוזר לשליחה במקביל; אין presence/typing lease בזמן כתיבה,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.16,תיבת שיחות,עימוד היסטוריה ומיקום גלילה,חסר,P1,poll עד100; SSR היסטוריה לא מוגבלת; אין load-older cursor,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+8.17,תיבת שיחות,כשל שומר טקסט ואינו מוצג כהצלחה,מומש ונבדק,P0,בדיקת component; timeout מוצג כאי־ודאות,src/components/inbox; src/server/services/conversation-service.ts; src/app/api/conversations
+9.01,חיבור ל־CRM,שיוך נכנסת לאיש קשר,מומש ונבדק,P0,נרמול+upsert unique phone,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.02,חיבור ל־CRM,יצירת ליד לא מוכר,מומש חלקית,P1,Contact אוטומטי source=whatsapp consent UNKNOWN; אין מנוע כללים,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.03,חיבור ל־CRM,כרטיס לקוח מתוך שיחה,מומש ונבדק,P1,contact profile וקישור Contact,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.04,חיבור ל־CRM,ציר זמן WhatsApp בלקוח,מומש חלקית,P1,רשימת שיחות לקוח; לא ציר זמן CRM מלא,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.05,חיבור ל־CRM,עדכון תגיות סטטוס ונציג מתוך שיחה,מומש ונבדק,P1,נתיבים קיימים ומדיניות תפקידים,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.06,חיבור ל־CRM,יצירה ועדכון משימות,חסר,P1,אין Task model,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.07,חיבור ל־CRM,רכישות והזמנות לפי הרשאה,חסום לבדיקה,P1,אין API/source; אין נתונים מדומים,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.08,חיבור ל־CRM,שמירת קשרים במיזוג,חסר,P1,אין merge,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.09,חיבור ל־CRM,מניעת לקוחות כפולים במקביל,מומש ונבדק,P0,unique phone; נעילת Contact לפתיחת שיחות,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.10,חיבור ל־CRM,מעבר CRM חייגן WhatsApp עם הקשר,מומש חלקית,P1,קישורי Contact/Inbox וטיוטת טקסט; אין חייגן מחובר,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.11,חיבור ל־CRM,סימון אינטגרציות חסרות,מומש חלקית,P0,אין כפתורי רכישות/הכנסות מדומים; פערים מפורטים בדוח,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+10.01,אוטומציות,ליד חדש,מומש חלקית,P1,NEW_CONVERSATION ולא Contact-created,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.02,אוטומציות,שינוי סטטוס או תגית,מומש חלקית,P1,TAG_ADDED; אין טריגר שינוי סטטוס,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.03,אוטומציות,הודעה נכנסת,מומש ונבדק,P0,NEW_INBOUND_MESSAGE לאחר persistence/dedup,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.04,אוטומציות,רכישה,חסום לבדיקה,P1,אין מקור אירועי רכישה,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.05,אוטומציות,תאריך ומשימת מעקב,מומש חלקית,P1,NO_REPLY_TIMEOUT בלבד; אין משימות/תאריך עסקי,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.06,אוטומציות,פתיחה ומחוץ לשעות,מומש חלקית,P1,מענה בסיסי לפתיחת שיחה; אין business hours,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.07,אוטומציות,השהיה בין שלבים,חסר,P1,delayed action קיימת; אין workflow רב־שלבי,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.08,אוטומציות,פיצול לפי תגובה/נתונים,חסר,P1,אין condition/branch engine,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.09,אוטומציות,משימה עדכון שדה והעברה לנציג,מומש חלקית,P1,assign/tag/status/note; אין task/custom-field action,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.10,אוטומציות,עצירה אחרי הסרה,מומש ונבדק,P0,שירות השליחה אוכף זכאות שיווקית בכל פעולה,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.11,אוטומציות,שינוי מסלול אחרי תגובה,מומש חלקית,P1,no-reply recheck; אין מסלולים,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.12,אוטומציות,מניעת לולאות וטריגרים כפולים,מומש חלקית,P0,inbound dedup ו־CAS scheduled run; אין event outbox/dedup כללי,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.13,אוטומציות,מניעת הפעלה רטרואקטיבית,מומש חלקית,P1,אין replay אוטומטי; אין גרסאות או event watermark,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.14,אוטומציות,זכאות ותבנית בכל שלב,מומש ונבדק,P0,כל send עובר message service,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.15,אוטומציות,גרסאות ומדיניות שינוי,חסר,P0,worker קורא rule נוכחי; שינוי עשוי להשפיע על ריצות שכבר תוזמנו,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.16,אוטומציות,היסטוריית ריצה וכשל ללקוח,מומש חלקית,P1,AutomationRun עם conversationId/error; מסך100אחרונים,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.17,אוטומציות,מצב בדיקה לפני הפעלה,חסר,P0,mock גלובלי אינו dry-run לאוטומציה בודדת,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.18,אוטומציות,עצירה מרכזית,מומש חלקית,P0,disable כל rule וניתוק חיבור; אין switch גלובלי לאוטומציות,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+10.19,אוטומציות,העברה לאדם והפסקת תגובות,מומש חלקית,P0,נוספה חסימת send אוטומטי כאשר יש נציג משויך; אין בוט AI קיים,src/server/services/automation-service.ts; src/jobs/automation-runner.ts
+11.01,דוחות ומדידה,דוחות קמפיין ותקופה,מומש חלקית,P1,קמפיינים ופירוט נמענים; analytics קבוע30יום,src/server/services/analytics-service.ts; campaign-service.ts
+11.02,דוחות ומדידה,דוחות מספר ונציג,מומש חלקית,P1,נציג לפי אחראי נוכחי; מספר יחיד ללא פילוח,src/server/services/analytics-service.ts; campaign-service.ts
+11.03,דוחות ומדידה,זכאים והחרגות,מומש חלקית,P1,preflight נוכחי; לא נשמר snapshot דוח eligibility היסטורי,src/server/services/analytics-service.ts; campaign-service.ts
+11.04,דוחות ומדידה,accepted sent delivered read failed,מומש חלקית,P0,סטטוס הודעה מפורש; campaign count SENT עדיין פירושו provider acceptance,src/server/services/analytics-service.ts; campaign-service.ts
+11.05,דוחות ומדידה,תגובות והסרות,חסר,P1,נשמרות ב־Contact/Message; אין attribution לקמפיין ודוח,src/server/services/analytics-service.ts; campaign-service.ts
+11.06,דוחות ומדידה,זמני תגובה וטיפול,מומש חלקית,P1,תגובה ללא failed/unknown; זמן טיפול לא מוצג כי אין closedAt אמין,src/server/services/analytics-service.ts; campaign-service.ts
+11.07,דוחות ומדידה,עלויות אמיתיות,חסום לבדיקה,P1,אין billing feed/rate card מאומת,src/server/services/analytics-service.ts; campaign-service.ts
+11.08,דוחות ומדידה,המרות והכנסות,חסום לבדיקה,P1,אין עסקאות או מודל שיוך,src/server/services/analytics-service.ts; campaign-service.ts
+11.09,דוחות ומדידה,קליקים,חסר,P2,אין redirect tracking; אין מספרים מדומים,src/server/services/analytics-service.ts; campaign-service.ts
+11.10,דוחות ומדידה,מכנה חלון זמן ושיטת ספירה,מומש חלקית,P1,נוספו הסברים לדוח הקיים; אין כל המדדים המבוקשים,src/server/services/analytics-service.ts; campaign-service.ts
+11.11,דוחות ומדידה,הודעות מול נמענים ייחודיים,מומש חלקית,P1,Recipient unique בקמפיין מול Message; אין dashboard השוואתי,src/server/services/analytics-service.ts; campaign-service.ts
+11.12,דוחות ומדידה,דיוק מול מערך ידוע,מומש חלקית,P0,בדיקות worker counts; נדרש מערך אנליטיקה כולל שיוך/טיפול,src/server/services/analytics-service.ts; campaign-service.ts
+12.01,הרשאות ואבטחה,הפרדה בין עסקים בכל טבלה ו־API,חסר,P0,אין tenant model. אין לצרף עסק שני לאותה פריסה,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.02,הרשאות ואבטחה,קבצים ו־realtime בין עסקים,חסר,P0,scope נציג בלבד; אין tenant; realtime משדר invalidation ריק,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.03,הרשאות ואבטחה,תפקידי נציג מנהל אדמין,מומש ונבדק,P0,API/UI guards; סשן נשלל בשינוי הרשאות/סיסמה,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.04,הרשאות ואבטחה,צפייה ייצוא קמפיין ואוטומציות,מומש חלקית,P0,campaign/automation manager+; export חסר; אין ACL granular,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.05,הרשאות ואבטחה,אימות Webhook,מומש ונבדק,P0,HMAC SHA256 ותזמון בטוח; config appSecret נדרש,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.06,הרשאות ואבטחה,החלפת מזהים IDOR,מומש ונבדק,P0,QA בין נציגים; אינה בדיקת tenants כי אין tenants,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.07,הרשאות ואבטחה,סודות ולוגים,מומש חלקית,P0,"server-only ומיסוך; credentials JSON במסד מוגן, אין encryption key נפרד",src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.08,הרשאות ואבטחה,גישה לקבצים,מומש ונבדק,P0,proxy דורש session ו־conversation scope; אין public Storage,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.09,הרשאות ואבטחה,סוג וגודל קובץ,מומש חלקית,P0,MIME allowlist וגודל; אין magic-byte inspection/antivirus,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.10,הרשאות ואבטחה,תוכן זדוני ושמות,מומש ונבדק,P0,"React escape, URL allowlist וולידציות; CSV לא מבצע נוסחאות",src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.11,הרשאות ואבטחה,תיעוד פעולות ושינוי הרשאות,מומש חלקית,P1,AuditLog קיים; אין audit transaction אחיד בכל API,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.12,הרשאות ואבטחה,שמירה ומחיקת מידע,חסר,P1,אין retention job/delete policy; נדרשת מדיניות עסקית,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.13,הרשאות ואבטחה,עצירת שליחה בניתוק,מומש חלקית,P0,snapshot והגנת provider פעיל לפני POST; בקשה שכבר במעוף לא ניתנת לביטול,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.14,הרשאות ואבטחה,RLS בטבלאות public,מומש ונבדק,P0,22 טבלאות RLS וגרנטים מבוטלים; advisors ללא ERROR/WARN,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+12.15,הרשאות ואבטחה,עסק א לא יכול לגשת לעסק ב,חסום לבדיקה,P0,לא ניתן להוכיח ללא ארכיטקטורת tenants; הפריסה חד־עסקית בלבד,src/lib/auth.ts; src/server/services/conversation-service.ts; prisma/changes/security-baseline.sql
+13.01,חוויית משתמש,עברית RTL וטלפונים LTR,מומש ונבדק,P1,בדיקות דפדפן קודמות desktop/mobile; חדשים דורשים בדיקה חוזרת,src/components; scripts/qa-browser.cjs
+13.02,חוויית משתמש,מחשב ומובייל,מומש חלקית,P1,מבנה responsive; סיכום/CSV חדשים טרם אומתו בדפדפן,src/components; scripts/qa-browser.cjs
+13.03,חוויית משתמש,טעינה ריק שגיאה ניתוק,מומש חלקית,P1,קיימים; שגיאות חיבור ו־UNKNOWN נוספו,src/components; scripts/qa-browser.cjs
+13.04,חוויית משתמש,שגיאות מעשיות,מומש חלקית,P1,הנחיות חסימה/סנכרון/בדיקה; כמה שגיאות ספק כלליות,src/components; scripts/qa-browser.cjs
+13.05,חוויית משתמש,טיוטות ניווט ורענון,מומש חלקית,P1,טקסט בלבד בשרת; debounce אינו מבטיח הקשה אחרונה בניווט מהיר,src/components; scripts/qa-browser.cjs
+13.06,חוויית משתמש,התקדמות קמפיין גדול,מומש ונבדק,P1,מונה סטטוסים ופירוט; polling10s,src/components; scripts/qa-browser.cjs
+13.07,חוויית משתמש,טקסט ארוך אימוג'י ושפות מעורבות,מומש חלקית,P1,React/UTF8 limits; טרם QA ויזואלי מלא לכל השילובים,src/components; scripts/qa-browser.cjs
+13.08,חוויית משתמש,מדיה שנכשלה בטעינה,מומש חלקית,P1,browser native controls; אין fallback מובנה לכל שגיאה,src/components; scripts/qa-browser.cjs
+13.09,חוויית משתמש,מקלדת ונגישות בסיסית,מומש חלקית,P1,labels ותפעול Enter; אין audit WCAG מלא,src/components; scripts/qa-browser.cjs
+13.10,חוויית משתמש,כפתורים ליכולות לא מחוברות,מומש חלקית,P0,דמו מסומן; אין כפתורי CRM דמיוניים; אין יכולת template-media,src/components; scripts/qa-browser.cjs
+14.01,QA מעשי,קמפיין תקינים כפולים חסומים וחסרי משתנים,מומש חלקית,P0,כיסוי משולב parser/policy/worker/DB; לא תרחיש UI יחיד מלא,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.02,QA מעשי,הסרה בין תזמון לשליחה,מומש ונבדק,P0,worker recheck ובדיקה חוזרת בשירות,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.03,QA מעשי,תבנית מושבתת לפני תחילה,מומש ונבדק,P0,בדיקת worker ללא provider send,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.04,QA מעשי,השהיה וביטול בזמן שליחה,מומש חלקית,P0,pause אחריclaim ו־cancel queued; אין ביטול בקשת HTTP במעוף,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.05,QA מעשי,לחיצה כפולה על הפעלה,מומש חלקית,P0,CAS transition; worker DB concurrency; נדרש UI double-click ייעודי,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.06,QA מעשי,קריסת worker והפעלה מחדש,מומש חלקית,P0,stale PROCESSING מדומה; לא kill של worker חי,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.07,QA מעשי,timeout לאחר קבלת ספק,מומש חלקית,P0,"mock קבלה ואז timeout; UNKNOWN ואיסור resend, ללא live Meta",tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.08,QA מעשי,Webhook כפול ומאוחר,מומש ונבדק,P0,DB כפילות וסטטוסים out-of-order בספק מדומה,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.09,QA מעשי,פקיעת טוקן באמצע קמפיין,מומש חלקית,P0,mock code190 וחסימת credential; אין live expiry,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.10,QA מעשי,שתי אוטומציות לאותו נמען,מומש חלקית,P0,marketing CAS ו־lease נבדקים; workflow כפול E2E חסר,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.11,QA מעשי,שני נציגים עונים,מומש חלקית,P0,lease ואידמפוטנטיות בבדיקות; אין presence UI,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.12,QA מעשי,גישה לעסק אחר,חסום לבדיקה,P0,אין tenant; בדיקת cross-agent אינה תחליף,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.13,QA מעשי,ייבוא גדול ו־10k קמפיין מדומה,מומש ונבדק,P1,parser10k ו־worker10000 עם DB מדומה; אינו benchmark DB או Meta,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.14,QA מעשי,דוחות מול נתונים ידועים,מומש חלקית,P0,counts מדומים; זמן טיפול מטעה הוסר; suite מדדים מלא חסר,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.15,QA מעשי,אפס הודעות אמיתיות ללקוחות,מומש ונבדק,P0,Graph mock וחיבור בדיקה מבודד; אין active Meta בפרודקשן,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+15.01,מסירה,מטריצה לכל הדרישות,מומש ונבדק,P0,מסמך זה עם סטטוס עדיפות השפעה ונתיב ראיה,docs/whatsapp-completeness-2026-09-23.md
+15.02,מסירה,תיקונים במסגרת הארכיטקטורה,מומש חלקית,P0,הרחבת שירותים קיימים ללא החלפת provider; פערי מוצר נותרו,docs/whatsapp-completeness-2026-09-23.md
+15.03,מסירה,תאימות ושמירת נתונים,מומש חלקית,P0,migration additive; היסטוריה לא סווגה מחדש; קמפיינים ישנים מושהים,docs/whatsapp-completeness-2026-09-23.md
+15.04,מסירה,תלויות חיצוניות ללא הדמיה סמויה,מומש ונבדק,P0,Meta חי/CRM/תמחור מסומנים חסומים; mock מסומן במפורש,docs/whatsapp-completeness-2026-09-23.md
+15.05,מסירה,הוכחת מסלול קמפיין מול ספק חי,חסום לבדיקה,P0,אין חשבון Meta מחובר ומספר בדיקה מאושר,docs/whatsapp-completeness-2026-09-23.md
+15.06,מסירה,הוכחת שיחה דו־כיוונית מול ספק חי,חסום לבדיקה,P0,"נדרשים token, WABA, phone, webhook ומכשיר בדיקה",docs/whatsapp-completeness-2026-09-23.md

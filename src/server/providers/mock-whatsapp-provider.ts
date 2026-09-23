@@ -11,6 +11,8 @@ const PLACEHOLDER_MEDIA_URLS: Record<string, string> = {
 };
 
 export class MockWhatsAppProvider implements WhatsAppProvider {
+  readonly requiresVerifiedInbound = false;
+  readonly credentialId: string | undefined = undefined;
   async sendMessage(): Promise<SendResult> {
     return { providerMessageId: `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, status: "SENT" };
   }
@@ -19,7 +21,7 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
     return this.sendMessage();
   }
 
-  async uploadMedia(_file: Buffer, mimeType: string): Promise<{ mediaUrl: string }> {
+  async uploadMedia(_file: Buffer, mimeType: string): Promise<{ mediaUrl: string; mediaId?: string }> {
     const type = Object.keys(PLACEHOLDER_MEDIA_URLS).find((key) => mimeType.startsWith(key.toLowerCase()));
     return { mediaUrl: PLACEHOLDER_MEDIA_URLS[type ?? "IMAGE"] };
   }

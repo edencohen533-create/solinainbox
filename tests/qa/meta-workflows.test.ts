@@ -57,7 +57,7 @@ it("submits for approval, blocks pending templates, syncs approval and sends a r
   await expect(createOutboundMessage({ conversationId, body: "hello", sentByUserId: agentA.user.id })).rejects.toThrow("חלון");
   templateStatus = "APPROVED"; await syncMetaTemplates();
   const result = await createOutboundMessage({ conversationId, body: "", templateId: template.id, templateVariables: { "1": "דנה" }, sentByUserId: agentA.user.id });
-  expect(result.message.status).toBe("SENT");
+  expect(result.message.status).toBe("ACCEPTED");
   expect(sent.at(-1)).toMatchObject({ type: "template", to: "972509990000", template: { name: "qa_submitted", language: { code: "he" } } });
 });
 it("deduplicates inbound webhooks, opens the reply window and advances delivery monotonically", async () => {
@@ -95,7 +95,34 @@ it("keeps the assigned representative when a customer returns after closing a co
   for (const [id, body] of [["return", "שלום שוב"], ["stop", "הסר"]]) await provider.receiveWebhook({ object: "whatsapp_business_account", entry: [{ changes: [{ field: "messages", value: { metadata: { phone_number_id: "123" }, messages: [{ id: `wamid.qa.${id}`, from: "972509990000", timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body } }] } }] }] });
   const open = await prisma.conversation.findFirstOrThrow({ where: { contactId: "qa-contact-0", status: "OPEN" } });
   expect(open.assignedAgentId).toBe(agentA.user.id);
-  await expect(createOutboundMessage({ conversationId: open.id, body: "אסור לשלוח", sentByUserId: agentA.user.id })).rejects.toThrow("אינו מאשר");
+  await expect(createOutboundMessage({ conversationId: open.id, body: "אסור לשלוח", sentByUserId: agentA.user.id, requireOptIn: true })).rejects.toThrow("אינו מאשר");
   // Reset only the synthetic fixture for browser QA.
   await prisma.contact.update({ where: { id: "qa-contact-0" }, data: { consentStatus: "OPTED_IN" } });
+});
+
+it("serializes representatives, retains request IDs and records ambiguous provider acceptance without resend", async () => {
+  const conv = await startConversation(admin, "qa-contact-3", agentA.user.id);
+  const template = await prisma.template.findUniqueOrThrow({ where: { name_language: { name: "qa_submitted", language: "he" } } });
+  const input = { conversationId: conv.id, body: "", templateId: template.id, templateVariables: { "1": "QA" }, sentByUserId: agentA.user.id, requestKey: "qa-concurrent-request" };
+  const before = sent.length;
+  const outcomes = await Promise.allSettled([createOutboundMessage(input), createOutboundMessage(input)]);
+  expect(outcomes.filter((o) => o.status === "fulfilled").length).toBeGreaterThanOrEqual(1);
+  expect(sent.length).toBe(before + 1);
+  await createOutboundMessage(input); expect(sent.length).toBe(before + 1);
+  vi.mocked(fetch).mockImplementationOnce(async () => { sent.push({ simulated: "provider accepted but response timed out" }); throw new Error("timeout after accept"); });
+  await expect(createOutboundMessage({ ...input, requestKey: "qa-unknown" })).rejects.toThrow("timeout");
+  expect((await prisma.message.findUniqueOrThrow({ where: { requestKey: "qa-unknown" } })).status).toBe("UNKNOWN");
+  const after = sent.length;
+  await expect(createOutboundMessage({ ...input, requestKey: "qa-unknown" })).rejects.toThrow("אינה ודאית");
+  expect(sent.length).toBe(after);
+});
+it("blocks a revoked Meta token", async () => {
+  const conv = await startConversation(admin, "qa-contact-3", agentA.user.id);
+  const template = await prisma.template.findUniqueOrThrow({ where: { name_language: { name: "qa_submitted", language: "he" } } });
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({ error: { code: 190, message: "Invalid access token" } }, { status: 401 }));
+  const result = await createOutboundMessage({ conversationId: conv.id, body: "", templateId: template.id, templateVariables: { "1": "QA" }, sentByUserId: agentA.user.id });
+  expect(result.message.status).toBe("FAILED");
+  expect((await prisma.providerCredential.findFirstOrThrow({ where: { isActive: true } })).sendingBlocked).toBe(true);
+  // Only this synthetic provider is reset, not production.
+  await prisma.providerCredential.updateMany({ where: { isActive: true }, data: { sendingBlocked: false } });
 });

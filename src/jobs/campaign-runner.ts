@@ -1,3 +1,4 @@
+import { activeSenderSnapshot, templateFingerprint } from "@/server/services/campaign-snapshot";
 import { prisma } from "@/lib/prisma";
 import { personalizeVariables } from "@/lib/campaigns";
 import { createOutboundMessage, MessagePolicyError } from "@/server/services/message-service";
@@ -36,20 +37,29 @@ export async function processDueCampaigns() {
         await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: { status: "QUEUED", claimedAt: null } });
         continue;
       }
+      const template = await prisma.template.findUnique({ where: { id: campaign.templateId } });
+      if (!campaign.senderSnapshot || campaign.senderSnapshot !== await activeSenderSnapshot() || !template || template.status !== "APPROVED" || campaign.templateSnapshot !== templateFingerprint(template)) {
+        await prisma.campaign.updateMany({ where: { id: campaign.id, status: "RUNNING" }, data: { status: "PAUSED" } });
+        await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: { status: "QUEUED", claimedAt: null, error: "החיבור או התבנית השתנו. יש ליצור טיוטה חדשה לאחר בדיקה" } });
+        continue;
+      }
       const contact = await prisma.contact.findUniqueOrThrow({ where: { id: recipient.contactId } });
-      if (contact.consentStatus !== "OPTED_IN") {
+      if (contact.isBlocked || contact.consentStatus !== "OPTED_IN") {
         await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: {
           status: "SKIPPED", error: "אין הסכמה פעילה לדיוור", completedAt: new Date(),
         } });
         continue;
       }
-      const conversation = await prisma.conversation.findFirst({
+      const conversation = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Contact" WHERE id = ${contact.id} FOR UPDATE`;
+        return await tx.conversation.findFirst({
         where: { contactId: contact.id, status: { in: ["OPEN", "PENDING"] }, isSpam: false }, orderBy: { createdAt: "desc" },
-      }) ?? await prisma.conversation.create({ data: { contactId: contact.id, source: "MANUAL" } });
+      }) ?? await tx.conversation.create({ data: { contactId: contact.id, source: "MANUAL" } });
+      });
       const { message } = await createOutboundMessage({
         conversationId: conversation.id, body: "", templateId: campaign.templateId,
         templateVariables: personalizeVariables(campaign.variables as Record<string, string>, contact.name),
-        sentByUserId: campaign.createdById, requireOptIn: true, campaignRecipientId: recipient.id,
+        sentByUserId: campaign.createdById, requireOptIn: true, campaignRecipientId: recipient.id, requestKey: `campaign:${recipient.id}`,
       });
       await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: {
         status: message.status === "FAILED" ? "FAILED" : "SENT", messageId: message.id,

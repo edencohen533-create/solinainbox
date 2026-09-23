@@ -68,7 +68,7 @@ export default async function ContactDetailPage({
         </div>
       )}
 
-      <ContactConsentEditor contactId={contact.id} initialStatus={contact.consentStatus} />
+      <ContactConsentEditor contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
       <StartConversationButton contactId={contact.id} disabled={contact.consentStatus === "OPTED_OUT"} />
       <Separator />
 

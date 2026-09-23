@@ -1,3 +1,5 @@
+import { acquireSendLease, SendConflictError } from "./send-guard";
+import { eligibilityError, isUnsubscribe, MARKETING_INTERVAL_MS } from "@/lib/message-policy";
 import { randomUUID } from "node:crypto";
 import { renderTemplate, validateTemplateVariables } from "@/lib/campaigns";
 import { prisma } from "@/lib/prisma";
@@ -36,8 +38,8 @@ export async function createInboundMessage(input: CreateInboundMessageInput) {
       const existing = await tx.message.findUnique({ where: { inboundKey: input.providerMessageId }, include: { conversation: true } });
       if (existing) return { conversation: existing.conversation, message: existing, isNewConversation: false, isDuplicate: true };
     }
-    if (["הסר", "הסרה", "הסר אותי", "stop", "unsubscribe"].includes(input.body.trim().toLowerCase())) {
-      await tx.contact.update({ where: { id: input.contactId }, data: { consentStatus: "OPTED_OUT" } });
+    if (isUnsubscribe(input.body)) {
+      await tx.contact.update({ where: { id: input.contactId }, data: { consentStatus: "OPTED_OUT", consentAt: new Date(), consentSource: "whatsapp", consentScope: "marketing", consentEvidence: input.providerMessageId ?? "inbound-demo" } });
     }
     const openConversation = await tx.conversation.findFirst({
       where: { contactId: input.contactId, status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] } },
@@ -102,12 +104,31 @@ export interface CreateOutboundMessageInput {
   templateVariables?: Record<string, string>;
   requireOptIn?: boolean;
   campaignRecipientId?: string;
+  requestKey?: string;
+  automated?: boolean;
   media?: { file: Buffer; mimeType: string; fileName: string };
 }
 
 export class MessagePolicyError extends Error {}
 
 export async function createOutboundMessage(input: CreateOutboundMessageInput) {
+  let release: () => Promise<void>;
+  try { release = await acquireSendLease(input.conversationId); }
+  catch (error) { if (error instanceof SendConflictError) throw new MessagePolicyError(error.message); throw error; }
+  try {
+    if (input.requestKey) {
+      const existing = await prisma.message.findUnique({ where: { requestKey: input.requestKey }, include: { attachments: true } });
+      if (existing) {
+        if (existing.conversationId !== input.conversationId || existing.sentByUserId !== input.sentByUserId) throw new MessagePolicyError("מזהה בקשה אינו תקין");
+        if (["QUEUED", "UNKNOWN"].includes(existing.status)) throw new MessagePolicyError("תוצאת הבקשה הקודמת אינה ודאית. אין לשלוח שוב לפני בדיקה");
+        return { conversation: await prisma.conversation.findUniqueOrThrow({ where: { id: input.conversationId } }), message: existing };
+      }
+    }
+    return await sendOutboundMessage(input);
+  } finally { await release(); }
+}
+
+async function sendOutboundMessage(input: CreateOutboundMessageInput) {
   const now = new Date();
 
   const conversation = await prisma.conversation.findUniqueOrThrow({
@@ -115,20 +136,27 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
     include: { contact: true },
   });
 
-  if (conversation.contact.consentStatus === "OPTED_OUT" || (input.requireOptIn && conversation.contact.consentStatus !== "OPTED_IN")) {
-    throw new MessagePolicyError("איש הקשר אינו מאשר קבלת הודעות");
-  }
+  const serviceWindow = !!conversation.lastInboundAt && now.getTime() - conversation.lastInboundAt.getTime() < 86400000;
+  let marketing = Boolean(input.requireOptIn);
+  if (input.automated && conversation.assignedAgentId) throw new MessagePolicyError("המענה האוטומטי נעצר כאשר נציג מטפל בשיחה");
   let body = input.body;
   if (input.templateId) {
     const template = await prisma.template.findUnique({ where: { id: input.templateId } });
     if (!template || template.status !== "APPROVED") throw new MessagePolicyError("התבנית אינה מאושרת לשליחה");
-    try { validateTemplateVariables(template.body, input.templateVariables ?? {}); }
+    marketing ||= template.category === "MARKETING";
+    try {
+      if (Object.values(input.templateVariables ?? {}).some((value) => /\{[^{}]+\}/.test(value))) throw new Error("יש לפתור את כל המשתנים לפני שליחה");
+      validateTemplateVariables(template.body, input.templateVariables ?? {});
+    }
     catch (error) { throw new MessagePolicyError((error as Error).message); }
     body = renderTemplate(template.body, input.templateVariables ?? {});
   } else if (!conversation.lastInboundAt || now.getTime() - conversation.lastInboundAt.getTime() >= 86400000) {
     throw new MessagePolicyError("חלון המענה הסתיים. יש לשלוח תבנית מאושרת");
   }
+  const eligibility = eligibilityError(conversation.contact, marketing, serviceWindow);
+  if (eligibility) throw new MessagePolicyError(eligibility);
   const provider = await getActiveProvider();
+  if (provider instanceof MockWhatsAppProvider && (conversation.source === "WHATSAPP" || await prisma.message.findFirst({ where: { conversationId: conversation.id, providerCredentialId: { not: null } }, select: { id: true } }))) throw new MessagePolicyError("חיבור WhatsApp נותק. יש לחבר מחדש לפני שליחה בשיחה זו");
   if (provider.requiresVerifiedInbound && !input.templateId) {
     const verifiedInbound = await prisma.message.findFirst({ where: {
       conversationId: input.conversationId, direction: "INBOUND", inboundKey: { not: null },
@@ -151,9 +179,16 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
   // Persist before contacting the provider. A timeout may mean it accepted
   // the message, so retain the queued row and never retry automatically.
   const attachmentId = randomUUID();
+  // Reserve the marketing budget across campaigns and automation workers.
+  if (marketing) {
+    const reserved = await prisma.contact.updateMany({ where: { id: conversation.contact.id, isBlocked: false, consentStatus: "OPTED_IN", OR: [{ lastMarketingAt: null }, { lastMarketingAt: { lte: new Date(now.getTime() - MARKETING_INTERVAL_MS) } }] }, data: { lastMarketingAt: now } });
+    if (!reserved.count) throw new MessagePolicyError("אין זכאות לדיוור או שנוצלה מגבלת דיוור אחת לנמען ב־24 שעות");
+  }
   const queued = await prisma.message.create({
     data: {
       conversationId: input.conversationId,
+      requestKey: input.requestKey,
+      providerCredentialId: provider.credentialId,
       direction: MessageDirection.OUTBOUND,
       type: input.templateId ? MessageType.TEMPLATE : (input.type ?? MessageType.TEXT),
       body,
@@ -170,14 +205,28 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
   if (input.campaignRecipientId) {
     await prisma.campaignRecipient.update({ where: { id: input.campaignRecipientId }, data: { messageId: queued.id } });
   }
-  const sendResult = input.templateId
-    ? await provider.sendTemplate(outboundPayload)
-    : await provider.sendMessage(outboundPayload);
+  let sendResult;
+  try {
+    // Opt-out / global block can change while media uploads are in flight.
+    const freshContact = await prisma.contact.findUniqueOrThrow({ where: { id: conversation.contact.id } });
+    const latestError = eligibilityError(freshContact, marketing, serviceWindow);
+    if (latestError) {
+      await prisma.message.update({ where: { id: queued.id }, data: { status: "FAILED", errorReason: latestError, failedAt: new Date() } });
+      throw new MessagePolicyError(latestError);
+    }
+    sendResult = input.templateId ? await provider.sendTemplate(outboundPayload) : await provider.sendMessage(outboundPayload);
+  } catch (error) {
+    if (!(error instanceof MessagePolicyError)) await prisma.message.update({ where: { id: queued.id }, data: { status: "UNKNOWN", errorReason: "תוצאה לא ודאית; אין לנסות שוב אוטומטית" } });
+    throw error;
+  }
   const message = await prisma.message.update({
     where: { id: queued.id },
     include: { attachments: { select: { id: true, url: true, mimeType: true, fileName: true, sizeBytes: true } } },
     data: {
-      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : MessageStatus.SENT,
+      status: sendResult.status === "FAILED" ? MessageStatus.FAILED : sendResult.status === "ACCEPTED" ? MessageStatus.ACCEPTED : MessageStatus.SENT,
+      errorReason: sendResult.error ?? null,
+      acceptedAt: sendResult.status !== "FAILED" ? new Date() : null,
+      failedAt: sendResult.status === "FAILED" ? new Date() : null,
       providerMessageId: sendResult.providerMessageId || null,
     },
   });
@@ -189,7 +238,7 @@ export async function createOutboundMessage(input: CreateOutboundMessageInput) {
 
   await writeAuditLog({
     actorUserId: input.sentByUserId,
-    action: "message.sent",
+    action: sendResult.status === "FAILED" ? "message.failed" : "message.accepted",
     entityType: "Conversation",
     entityId: input.conversationId,
     conversationId: input.conversationId,

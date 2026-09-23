@@ -3,10 +3,10 @@ import type { MessageStatus } from "@prisma/client";
 import { publishMessageStatus } from "@/lib/realtime/publish";
 
 export function previousStatuses(status: MessageStatus): MessageStatus[] {
-  if (status === "READ") return ["QUEUED", "SENT", "DELIVERED"];
-  if (status === "DELIVERED") return ["QUEUED", "SENT"];
-  if (status === "FAILED") return ["QUEUED", "SENT"];
-  if (status === "SENT") return ["QUEUED"];
+  if (status === "READ") return ["QUEUED", "UNKNOWN", "ACCEPTED", "SENT", "DELIVERED"];
+  if (status === "DELIVERED") return ["QUEUED", "UNKNOWN", "ACCEPTED", "SENT"];
+  if (status === "FAILED") return ["QUEUED", "UNKNOWN", "ACCEPTED", "SENT"];
+  if (status === "SENT") return ["QUEUED", "UNKNOWN", "ACCEPTED"];
   return [];
 }
 export async function updateProviderMessageStatus(providerMessageId: string, status: MessageStatus, timestamp: Date) {
@@ -15,6 +15,8 @@ export async function updateProviderMessageStatus(providerMessageId: string, sta
   for (const message of messages) {
     const updated = await prisma.message.updateMany({ where: { id: message.id, status: { in: previousStatuses(status) } }, data: {
       status,
+      ...(status === "SENT" ? { sentAt: timestamp } : {}),
+      ...(status === "FAILED" ? { failedAt: timestamp } : {}),
       ...(status === "DELIVERED" ? { deliveredAt: timestamp } : {}),
       ...(status === "READ" ? { readAt: timestamp } : {}),
     } });

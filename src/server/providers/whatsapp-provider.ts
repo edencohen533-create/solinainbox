@@ -12,7 +12,7 @@ export interface OutboundMessagePayload {
 
 export interface SendResult {
   providerMessageId: string;
-  status: "SENT" | "FAILED";
+  status: "ACCEPTED" | "SENT" | "FAILED";
   error?: string;
 }
 
@@ -27,6 +27,7 @@ export interface MessageStatusResult {
  * implementation — so swapping providers touches no calling code.
  */
 export interface WhatsAppProvider {
+  readonly credentialId?: string;
   readonly requiresVerifiedInbound?: boolean;
   sendMessage(payload: OutboundMessagePayload): Promise<SendResult>;
   sendTemplate(payload: OutboundMessagePayload): Promise<SendResult>;

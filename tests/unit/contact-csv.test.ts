@@ -17,3 +17,15 @@ describe("contact CSV import", () => {
     expect(() => parseContactCsv("name,phone,consentStatus\nDana,0501234567,yes")).toThrow("consentStatus");
   });
 });
+it("maps arbitrary columns and produces a bounded-error preview without silently importing invalid rows", () => {
+  const csv = "customer,mobile,permission\nDana,0501234567,OPTED_IN\nBad,no,UNKNOWN";
+  const mapping = { name: "customer", phone: "mobile", consentStatus: "permission" };
+  const result = parseContactCsv(csv, mapping, true);
+  expect(result.contacts).toHaveLength(1); expect(result.errors[0].row).toBe(3);
+  expect(() => parseContactCsv(csv, mapping)).toThrow();
+});
+it("validates and normalizes a 10,000-row import", () => {
+  const csv = "name,phone,consentStatus\n" + Array.from({ length: 10000 }, (_, i) => `QA ${i},+97250${String(i).padStart(7, "0")},OPTED_IN`).join("\n");
+  const result = parseContactCsv(csv);
+  expect(result.contacts).toHaveLength(10000); expect(result.errors).toHaveLength(0);
+});

@@ -6,6 +6,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("message composer", () => {
   it("allows an approved template outside the free-text window and renders the confirmed send", async () => {
     const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ body: "" }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ templates: [{ id: "t", name: "welcome", body: "שלום {{1}}" }] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ message: { id: "m", body: "שלום דנה" } }) });
     vi.stubGlobal("fetch", fetchMock);
@@ -18,7 +19,7 @@ describe("message composer", () => {
     fireEvent.change(screen.getByLabelText("משתנה 1"), { target: { value: "דנה" } });
     fireEvent.click(screen.getByRole("button", { name: "שלח" }));
     await waitFor(() => expect(onSent).toHaveBeenCalledWith(expect.objectContaining({ id: "m", body: "שלום דנה" })));
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ templateId: "t", templateVariables: { "1": "דנה" } });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual(expect.objectContaining({ templateId: "t", templateVariables: { "1": "דנה" }, requestId: expect.any(String) }));
   });
   it("keeps the message text when the provider rejects it", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "rejected" }) }));

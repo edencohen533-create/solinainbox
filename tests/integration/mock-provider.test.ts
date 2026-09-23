@@ -143,7 +143,7 @@ describe("createInboundMessage (mock provider inbound path)", () => {
     messageCreate.mockResolvedValue({ id: "msg-stop", direction: MessageDirection.INBOUND, type: MessageType.TEXT, body: "הסר", status: MessageStatus.SENT, createdAt: new Date() });
     conversationUpdate.mockResolvedValue({ id: "conv-1", unreadCount: 1, lastMessageAt: new Date() });
     await createInboundMessage({ contactId: "contact-1", body: " הסר " });
-    expect(contactUpdate).toHaveBeenCalledWith({ where: { id: "contact-1" }, data: { consentStatus: "OPTED_OUT" } });
+    expect(contactUpdate).toHaveBeenCalledWith({ where: { id: "contact-1" }, data: expect.objectContaining({ consentStatus: "OPTED_OUT", consentScope: "marketing" }) });
   });
 
   it("publishes a realtime event for both the conversation channel and the inbox channel", async () => {

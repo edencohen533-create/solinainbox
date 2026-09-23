@@ -21,7 +21,7 @@ export default async function AnalyticsPage() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-lg font-semibold">אנליטיקה</h1>
-        <p className="text-sm text-muted-foreground">30 הימים האחרונים</p>
+        <p className="text-sm text-muted-foreground">שיחות שנוצרו ב־30 הימים האחרונים. שיוך לנציג לפי האחראי הנוכחי. הודעות היום: שתי הכיוונים מאז חצות UTC. ממוצע תגובה: רק שיחות עם הודעה נכנסת ומענה שנשלח אחריה ({stats.firstResponseCount} שיחות). זמן טיפול אינו זמין עד לתיעוד אירועי סגירה אמינים.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

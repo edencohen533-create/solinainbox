@@ -5,6 +5,8 @@ import { Ltr } from "@/components/shared/ltr";
 import type { MessageItem } from "@/types/domain";
 
 const STATUS_ICON: Record<MessageItem["status"], React.ReactNode> = {
+  ACCEPTED: <span title="התקבל אצל הספק; ממתין לאירוע שליחה">נקלט</span>,
+  UNKNOWN: <span title="תוצאה לא ודאית — יש לבדוק לפני ניסיון נוסף">?</span>,
   QUEUED: <Clock className="h-3 w-3" />,
   SENT: <Check className="h-3 w-3" />,
   DELIVERED: <CheckCheck className="h-3 w-3" />,

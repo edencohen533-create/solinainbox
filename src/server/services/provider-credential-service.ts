@@ -15,6 +15,9 @@ export async function getActiveProviderSummary() {
   return {
     provider: active.provider,
     configured: true,
+    lastCheckedAt: active.lastCheckedAt?.toISOString() ?? null,
+    lastConnectionError: active.lastConnectionError,
+    sendingBlocked: active.sendingBlocked,
     phoneNumberId: config.phoneNumberId ?? null,
     businessAccountId: config.businessAccountId ?? null,
     accessTokenMasked: config.accessToken ? `${"•".repeat(Math.max(config.accessToken.length - 4, 4))}${config.accessToken.slice(-4)}` : null,
@@ -33,8 +36,8 @@ export async function activateMetaProvider(input: MetaProviderConfigInput, actor
     await tx.providerCredential.updateMany({ where: { isActive: true }, data: { isActive: false } });
     const existing = await tx.providerCredential.findFirst({ where: { provider: "meta_whatsapp_cloud_api" } });
     return existing
-      ? tx.providerCredential.update({ where: { id: existing.id }, data: { config: input, isActive: true } })
-      : tx.providerCredential.create({ data: { provider: "meta_whatsapp_cloud_api", config: input, isActive: true } });
+      ? tx.providerCredential.update({ where: { id: existing.id }, data: { config: input, isActive: true, sendingBlocked: false, lastCheckedAt: new Date(), lastConnectionError: null } })
+      : tx.providerCredential.create({ data: { provider: "meta_whatsapp_cloud_api", config: input, isActive: true, sendingBlocked: false, lastCheckedAt: new Date(), lastConnectionError: null } });
   });
 
   await writeAuditLog({

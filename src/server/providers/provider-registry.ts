@@ -20,7 +20,7 @@ export async function getActiveProvider(): Promise<WhatsAppProvider> {
   }
 
   if (active.provider === "meta_whatsapp_cloud_api") {
-    return new MetaWhatsAppProvider(active.config as unknown as MetaWhatsAppConfig);
+    return new MetaWhatsAppProvider(active.config as unknown as MetaWhatsAppConfig, active.id);
   }
 
   // Other providers (e.g. Telnyx) can be added the same way: implement
