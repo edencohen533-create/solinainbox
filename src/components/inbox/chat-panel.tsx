@@ -16,17 +16,20 @@ export function ChatPanel({
   initialMessages,
   composerDisabled,
   composerDisabledReason,
+  senderUnavailable,
 }: {
   conversationId: string;
   initialMessages: MessageItem[];
   composerDisabled?: boolean;
   composerDisabledReason?: string;
+  senderUnavailable?: string | null;
 }) {
   // Keyed by conversationId in the parent, so switching conversations
   // remounts this component with fresh initial state instead of needing an
   // effect to re-sync `messages` from the `initialMessages` prop.
   const [messages, setMessages] = useState<MessageItem[]>(initialMessages);
   const [accessRevoked, setAccessRevoked] = useState(false);
+  const [senderBlocked, setSenderBlocked] = useState(senderUnavailable);
   const [windowClosed, setWindowClosed] = useState(composerDisabled);
   const [hasMore, setHasMore] = useState(initialMessages.length === 100);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -65,6 +68,7 @@ export function ChatPanel({
       setAccessRevoked(true); setMessages([]); return;
     }
     if (event.type === "conversation_snapshot") {
+      setSenderBlocked(event.senderUnavailable);
       setAccessRevoked(false);
       setWindowClosed(!event.lastInboundAt || Date.now() - new Date(event.lastInboundAt).getTime() > 86400000);
       setMessages((prev) => {
@@ -119,7 +123,7 @@ export function ChatPanel({
         })}
         <div ref={bottomRef} />
       </div>
-      <MessageComposer onSent={(message) => setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])} conversationId={conversationId} disabled={windowClosed} disabledReason={composerDisabledReason} />
+      <MessageComposer senderUnavailable={senderBlocked} onSent={(message) => setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message])} conversationId={conversationId} disabled={windowClosed} disabledReason={composerDisabledReason} />
     </div>
   );
 }

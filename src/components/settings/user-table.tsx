@@ -14,6 +14,7 @@ interface UserRow {
   email: string;
   role: string;
   isActive: boolean;
+  teamId: string | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -22,7 +23,7 @@ const ROLE_LABELS: Record<string, string> = {
   AGENT: "נציג",
 };
 
-export function UserTable({ users: initialUsers, canManage }: { users: UserRow[]; canManage: boolean }) {
+export function UserTable({ users: initialUsers, canManage, teams = [] }: { users: UserRow[]; canManage: boolean; teams?: { id: string; name: string }[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -53,6 +54,7 @@ export function UserTable({ users: initialUsers, canManage }: { users: UserRow[]
             <TableHead>שם</TableHead>
             <TableHead>אימייל</TableHead>
             <TableHead>תפקיד</TableHead>
+            <TableHead>צוות</TableHead>
             <TableHead>פעיל</TableHead><TableHead>סיסמה</TableHead>
           </TableRow>
         </TableHeader>
@@ -66,6 +68,10 @@ export function UserTable({ users: initialUsers, canManage }: { users: UserRow[]
               <TableCell>
                 <Badge variant="outline">{ROLE_LABELS[user.role] ?? user.role}</Badge>
               </TableCell>
+              <TableCell><select aria-label={`צוות של ${user.name}`} className="rounded border p-2" disabled={!canManage || pending !== null} value={user.teamId || ""} onChange={async (event) => {
+                const teamId = event.target.value || null; setPending(user.id);
+                try { const res = await fetch(`/api/settings/users/${user.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ teamId }) }); if (!res.ok) throw new Error(); setUsers((current) => current.map((item) => item.id === user.id ? { ...item, teamId } : item)); toast.success("הצוות עודכן; המשתמש יידרש להיכנס מחדש"); } catch { toast.error("עדכון הצוות נכשל"); } finally { setPending(null); }
+              }}><option value="">ללא צוות</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></TableCell>
               <TableCell>
                 <Switch
                   checked={user.isActive}

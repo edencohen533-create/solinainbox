@@ -37,7 +37,7 @@ describe("buildConversationScope", () => {
     const where = buildConversationScope(session);
 
     expect(where).toEqual({
-      AND: [{ OR: [{ assignedAgentId: "agent-1" }, { assignedAgentId: null }] }],
+      AND: [{ OR: [{ assignedAgentId: "agent-1" }, { assignedAgentId: null }] }, { OR: [{ providerCredentialId: null }, { providerCredential: { teamId: null } }] }],
     });
   });
 
@@ -51,7 +51,7 @@ describe("buildConversationScope", () => {
     const where = buildConversationScope(session, { status: "OPEN" });
 
     expect(where).toEqual({
-      AND: [{ OR: [{ assignedAgentId: "agent-1" }, { assignedAgentId: null }] }, { status: "OPEN" }],
+      AND: [{ OR: [{ assignedAgentId: "agent-1" }, { assignedAgentId: null }] }, { OR: [{ providerCredentialId: null }, { providerCredential: { teamId: null } }] }, { status: "OPEN" }],
     });
   });
 });

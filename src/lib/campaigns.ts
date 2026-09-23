@@ -5,6 +5,7 @@ export const distributionListSchema = z.object({
   contactIds: z.array(z.string().min(1)).min(1).max(10000).transform((ids) => [...new Set(ids)]),
 });
 export const campaignSchema = z.object({
+  providerCredentialId: z.string().min(1).nullable().optional(),
   name: z.string().trim().min(1).max(120),
   listId: z.string().min(1),
   templateId: z.string().min(1),

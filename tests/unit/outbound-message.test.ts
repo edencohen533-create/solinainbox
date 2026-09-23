@@ -4,6 +4,7 @@ const { db, provider } = vi.hoisted(() => ({
     conversation: { findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     contact: { findUniqueOrThrow: vi.fn(), updateMany: vi.fn() },
     message: { create: vi.fn(), update: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn() },
+    user: { findUnique: vi.fn() },
     template: { findUnique: vi.fn() },
     campaignRecipient: { update: vi.fn() },
   }, provider: { sendMessage: vi.fn(), sendTemplate: vi.fn(), requiresVerifiedInbound: false },
@@ -17,6 +18,7 @@ import { createOutboundMessage } from "@/server/services/message-service";
 const input = { conversationId: "c", body: "hello", sentByUserId: "u" };
 beforeEach(() => {
   vi.resetAllMocks(); provider.requiresVerifiedInbound = false;
+  db.user.findUnique.mockResolvedValue({ isActive: true, role: "ADMIN", teamId: null });
   db.conversation.updateMany.mockResolvedValue({ count: 1 });
   db.contact.updateMany.mockResolvedValue({ count: 1 });
   db.contact.findUniqueOrThrow.mockResolvedValue({ id: "p", consentStatus: "OPTED_IN" });

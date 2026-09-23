@@ -9,9 +9,9 @@ export function previousStatuses(status: MessageStatus): MessageStatus[] {
   if (status === "SENT") return ["QUEUED", "UNKNOWN", "ACCEPTED"];
   return [];
 }
-export async function updateProviderMessageStatus(providerMessageId: string, status: MessageStatus, timestamp: Date) {
+export async function updateProviderMessageStatus(providerMessageId: string, status: MessageStatus, timestamp: Date, credentialId?: string) {
   // Predicates make repeated/out-of-order callbacks harmless.
-  const messages = await prisma.message.findMany({ where: { providerMessageId, direction: "OUTBOUND" }, select: { id: true, conversationId: true } });
+  const messages = await prisma.message.findMany({ where: { providerMessageId, ...(credentialId ? { providerCredentialId: credentialId } : {}), direction: "OUTBOUND" }, select: { id: true, conversationId: true } });
   for (const message of messages) {
     const updated = await prisma.message.updateMany({ where: { id: message.id, status: { in: previousStatuses(status) } }, data: {
       status,

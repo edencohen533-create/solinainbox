@@ -23,7 +23,7 @@ export function useRealtimeChannel(channelName: string, onEvent: (event: Realtim
           if ([401, 403, 404].includes(response.status)) { handleEvent({ type: "access_revoked" }); return; }
           if (response.ok) {
             const data = await response.json();
-            if (!disposed) handleEvent({ type: "conversation_snapshot", conversationId, messages: data.messages, lastInboundAt: data.lastInboundAt });
+            if (!disposed) handleEvent({ type: "conversation_snapshot", conversationId, messages: data.messages, lastInboundAt: data.lastInboundAt, senderUnavailable: data.senderUnavailable });
           }
         }
       } catch { /* Retry on the next wake-up or polling tick. */ }

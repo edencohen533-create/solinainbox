@@ -7,7 +7,7 @@ export class TemplateSubmissionError extends Error {}
 
 export async function submitMetaTemplate(input: unknown) {
   const data = submitTemplateSchema.parse(input);
-  const credential = await prisma.providerCredential.findFirst({ where: { isActive: true, provider: "meta_whatsapp_cloud_api" } });
+  const credential = await prisma.providerCredential.findFirst({ where: { isActive: true, provider: "meta_whatsapp_cloud_api", sendingBlocked: false }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] });
   const config = credential?.config as unknown as MetaWhatsAppConfig | undefined;
   if (!config?.businessAccountId) throw new TemplateSubmissionError("יש לחבר חשבון Meta ולהגדיר Business Account ID לפני הגשה");
   const variables = templateParameterKeys(data.body);

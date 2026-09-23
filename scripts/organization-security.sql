@@ -176,3 +176,9 @@ ALTER TABLE "Campaign" ADD CONSTRAINT "Campaign_createdById_organization_fk" FOR
 ALTER TABLE "CampaignRecipient" ADD CONSTRAINT "CampaignRecipient_campaignId_organization_fk" FOREIGN KEY ("organizationId", "campaignId") REFERENCES "Campaign"("organizationId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "CampaignRecipient" ADD CONSTRAINT "CampaignRecipient_contactId_organization_fk" FOREIGN KEY ("organizationId", "contactId") REFERENCES "Contact"("organizationId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "Message" ADD CONSTRAINT "Message_providerCredentialId_organization_fk" FOREIGN KEY ("organizationId", "providerCredentialId") REFERENCES "ProviderCredential"("organizationId", "id") ON DELETE NO ACTION;
+
+-- Enforce same-business relationships even on direct SQL writes.
+ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_providerCredentialId_organization_fk" FOREIGN KEY ("organizationId", "providerCredentialId") REFERENCES "ProviderCredential"("organizationId", "id") ON DELETE NO ACTION;
+ALTER TABLE "Campaign" ADD CONSTRAINT "Campaign_providerCredentialId_organization_fk" FOREIGN KEY ("organizationId", "providerCredentialId") REFERENCES "ProviderCredential"("organizationId", "id") ON DELETE NO ACTION;
+ALTER TABLE "ProviderCredential" ADD CONSTRAINT "ProviderCredential_teamId_organization_fk" FOREIGN KEY ("organizationId", "teamId") REFERENCES "Team"("organizationId", "id") ON DELETE NO ACTION;
+CREATE UNIQUE INDEX "ProviderCredential_one_active_default" ON "ProviderCredential"("organizationId") WHERE "isActive" AND "isDefault";

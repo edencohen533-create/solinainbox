@@ -27,7 +27,7 @@ export function mapRemoteTemplate(template: z.infer<typeof remoteTemplate>) {
 }
 
 export async function syncMetaTemplates() {
-  const credential = await prisma.providerCredential.findFirst({ where: { isActive: true, provider: "meta_whatsapp_cloud_api" } });
+  const credential = await prisma.providerCredential.findFirst({ where: { isActive: true, provider: "meta_whatsapp_cloud_api", sendingBlocked: false }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] });
   if (!credential) throw new TemplateSyncError("יש לחבר תחילה את Meta בהגדרות וואטסאפ");
   const config = credential.config as unknown as MetaWhatsAppConfig;
   if (!config.businessAccountId || !/^\d+$/.test(config.businessAccountId)) throw new TemplateSyncError("יש להגדיר WhatsApp Business Account ID בהגדרות החיבור");

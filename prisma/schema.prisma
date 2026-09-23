@@ -126,11 +126,12 @@ model User {
 }
 
 model Team {
-  organizationId String   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
-  id             String   @id @default(cuid())
-  name           String
-  createdAt      DateTime @default(now())
-  members        User[]
+  whatsappNumbers ProviderCredential[]
+  organizationId  String               @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id              String               @id @default(cuid())
+  name            String
+  createdAt       DateTime             @default(now())
+  members         User[]
 
   @@index([organizationId])
 }
@@ -178,29 +179,32 @@ model ContactCustomField {
 }
 
 model Conversation {
-  organizationId  String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
-  sendLockToken   String?
-  sendLockUntil   DateTime?
-  id              String              @id @default(cuid())
-  contactId       String
-  contact         Contact             @relation(fields: [contactId], references: [id])
-  assignedAgentId String?
-  assignedAgent   User?               @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
-  status          ConversationStatus  @default(OPEN)
-  source          ConversationSource  @default(MOCK)
-  isSpam          Boolean             @default(false)
-  lastMessageAt   DateTime?
-  lastInboundAt   DateTime?
-  unreadCount     Int                 @default(0)
-  messages        Message[]
-  tags            ConversationTag[]
-  notes           Note[]
-  drafts          ConversationDraft[]
-  automationRuns  AutomationRun[]
-  auditLogs       AuditLog[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  providerCredentialId String?
+  providerCredential   ProviderCredential? @relation(fields: [providerCredentialId], references: [id], onDelete: Restrict)
+  organizationId       String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  sendLockToken        String?
+  sendLockUntil        DateTime?
+  id                   String              @id @default(cuid())
+  contactId            String
+  contact              Contact             @relation(fields: [contactId], references: [id])
+  assignedAgentId      String?
+  assignedAgent        User?               @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  status               ConversationStatus  @default(OPEN)
+  source               ConversationSource  @default(MOCK)
+  isSpam               Boolean             @default(false)
+  lastMessageAt        DateTime?
+  lastInboundAt        DateTime?
+  unreadCount          Int                 @default(0)
+  messages             Message[]
+  tags                 ConversationTag[]
+  notes                Note[]
+  drafts               ConversationDraft[]
+  automationRuns       AutomationRun[]
+  auditLogs            AuditLog[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
+  @@index([providerCredentialId])
   @@index([status])
   @@index([assignedAgentId])
   @@index([lastMessageAt])
@@ -408,17 +412,25 @@ model AuditLog {
 }
 
 model ProviderCredential {
-  phoneNumberId       String?   @unique
-  organizationId      String    @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  label               String?
+  displayPhoneNumber  String?
+  teamId              String?
+  team                Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  isDefault           Boolean        @default(false)
+  lastWebhookAt       DateTime?
+  conversations       Conversation[]
+  campaigns           Campaign[]
+  phoneNumberId       String?        @unique
+  organizationId      String         @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   lastCheckedAt       DateTime?
   lastConnectionError String?
-  sendingBlocked      Boolean   @default(false)
-  id                  String    @id @default(cuid())
+  sendingBlocked      Boolean        @default(false)
+  id                  String         @id @default(cuid())
   provider            String
-  isActive            Boolean   @default(false)
-  config              Json      @default("{}")
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  isActive            Boolean        @default(false)
+  config              Json           @default("{}")
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   @@index([organizationId])
 }
@@ -465,24 +477,27 @@ model DistributionListMember {
 }
 
 model Campaign {
-  organizationId   String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
-  senderSnapshot   String?
-  templateSnapshot String?
-  id               String              @id @default(cuid())
-  name             String
-  listId           String
-  list             DistributionList    @relation(fields: [listId], references: [id])
-  templateId       String
-  template         Template            @relation(fields: [templateId], references: [id])
-  variables        Json                @default("{}")
-  createdById      String
-  createdBy        User                @relation(fields: [createdById], references: [id])
-  status           CampaignStatus      @default(DRAFT)
-  scheduledAt      DateTime?
-  recipients       CampaignRecipient[]
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  providerCredentialId String?
+  providerCredential   ProviderCredential? @relation(fields: [providerCredentialId], references: [id], onDelete: Restrict)
+  organizationId       String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  senderSnapshot       String?
+  templateSnapshot     String?
+  id                   String              @id @default(cuid())
+  name                 String
+  listId               String
+  list                 DistributionList    @relation(fields: [listId], references: [id])
+  templateId           String
+  template             Template            @relation(fields: [templateId], references: [id])
+  variables            Json                @default("{}")
+  createdById          String
+  createdBy            User                @relation(fields: [createdById], references: [id])
+  status               CampaignStatus      @default(DRAFT)
+  scheduledAt          DateTime?
+  recipients           CampaignRecipient[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
+  @@index([providerCredentialId])
   @@index([status, scheduledAt])
   @@index([listId])
   @@index([templateId])

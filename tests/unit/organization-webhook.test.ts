@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.unmock("@/lib/organization-context");
 const { credentials, organizations } = vi.hoisted(() => ({ credentials: vi.fn(), organizations: vi.fn() }));
 vi.mock("@/lib/system-database", () => ({ systemDatabase: { providerCredential: { findMany: credentials }, organization: { findFirst: organizations } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { providerCredential: { update: vi.fn().mockResolvedValue({}) } } }));
 import { requireOrganizationId } from "@/lib/organization-context";
 import { MetaWhatsAppProvider } from "@/server/providers/meta-whatsapp-provider";
 import { GET, POST } from "@/app/api/webhooks/whatsapp/route";

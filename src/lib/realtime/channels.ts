@@ -48,5 +48,6 @@ export interface ConversationSnapshotEvent {
   conversationId: string;
   messages: import("@/types/domain").MessageItem[];
   lastInboundAt: string | null;
+  senderUnavailable?: string | null;
 }
 export type RealtimeEvent = MessageStatusEvent | ConversationSnapshotEvent | { type: "access_revoked" } | { type: "invalidate" } | NewMessageEvent | ConversationUpdatedEvent | TypingEvent;

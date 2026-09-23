@@ -56,3 +56,19 @@ it("does not let a delayed clear overwrite the next draft", async () => {
   finishClear();
   await waitFor(() => expect(writes).toEqual(["", "next draft"]));
 });
+
+it("blocks sending after number disconnect while preserving the representative's draft", async () => {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ body: "" }) });
+  vi.stubGlobal("fetch", fetchMock);
+  const view = render(<MessageComposer conversationId="c" />);
+  await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  fireEvent.change(screen.getByPlaceholderText("הקלד הודעה..."), { target: { value: "טיוטה שתישמר" } });
+  view.rerender(<MessageComposer conversationId="c" senderUnavailable="המספר נותק" />);
+  expect(screen.getByRole("alert")).toHaveTextContent("המספר נותק");
+  expect(screen.getByRole("button", { name: "שלח" })).toBeDisabled();
+  fireEvent.keyDown(screen.getByPlaceholderText("הקלד הודעה..."), { key: "Enter" });
+  expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/messages"))).toBe(false);
+  view.rerender(<MessageComposer conversationId="c" senderUnavailable={null} />);
+  expect(screen.getByPlaceholderText("הקלד הודעה...")).toHaveValue("טיוטה שתישמר");
+  expect(screen.getByRole("button", { name: "שלח" })).toBeEnabled();
+});

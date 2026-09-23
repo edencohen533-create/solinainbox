@@ -2,7 +2,8 @@ import { organizationRequest } from "@/lib/organization-request";
 import { auth } from "@/lib/auth";
 import { hasRole, ROLES_ADMIN } from "@/lib/auth-guards";
 import { AccessDenied } from "@/components/shared/access-denied";
-import { getActiveProviderSummary } from "@/server/services/provider-credential-service";
+import { prisma } from "@/lib/prisma";
+import { getActiveProviderSummary, listProviderSummaries } from "@/server/services/provider-credential-service";
 import { WhatsAppProviderForm } from "@/components/settings/whatsapp-provider-form";
 
 export default organizationRequest(async function WhatsAppSettingsPage() {
@@ -12,7 +13,7 @@ export default organizationRequest(async function WhatsAppSettingsPage() {
     return <AccessDenied />;
   }
 
-  const summary = await getActiveProviderSummary();
+  const [summary, numbers, teams] = await Promise.all([getActiveProviderSummary(), listProviderSummaries(), prisma.team.findMany({ select: { id: true, name: true } })]);
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   const webhookUrl = `${baseUrl}/api/webhooks/whatsapp`;
 
@@ -22,7 +23,7 @@ export default organizationRequest(async function WhatsAppSettingsPage() {
       <p className="mb-6 text-sm text-muted-foreground">
         {summary.provider === "mock" ? "כרגע המערכת במצב דמו. חבר חשבון Meta כדי לשלוח ולקבל הודעות אמיתיות." : "חיבור Meta מוגדר. ניתן לבדוק את הגישה ולעדכן את פרטי החיבור כאן."}
       </p>
-      <WhatsAppProviderForm initialSummary={summary} webhookUrl={webhookUrl} />
+      <WhatsAppProviderForm initialSummary={summary} webhookUrl={webhookUrl} numbers={JSON.parse(JSON.stringify(numbers))} teams={teams} />
     </div>
   );
 });

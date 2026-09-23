@@ -44,8 +44,11 @@ export default organizationRequest(async function ConversationPage({
   const composerDisabled =
     !conversation.lastInboundAt || now - conversation.lastInboundAt.getTime() > TWENTY_FOUR_HOURS_MS;
 
+  const senderUnavailable = conversation.providerCredential
+    ? (!conversation.providerCredential.isActive || conversation.providerCredential.sendingBlocked ? "המספר השולח מנותק או חסום. יש לפנות למנהל לחיבור מחדש" : null)
+    : await prisma.providerCredential.findFirst({ where: { isActive: true, provider: "meta_whatsapp_cloud_api" }, select: { id: true } }) ? "שיחת הדגמה: יש לפתוח שיחה חדשה באמצעות מספר WhatsApp מחובר" : null;
   const agents = await prisma.user.findMany({
-    where: { isActive: true, ...(session.user.role === Role.AGENT ? { id: session.user.id } : {}) },
+    where: { isActive: true, ...(session.user.role === Role.AGENT ? { id: session.user.id } : {}), ...(conversation.providerCredential?.teamId ? { OR: [{ teamId: conversation.providerCredential.teamId }, { role: { in: [Role.ADMIN, Role.MANAGER] } }] } : {}) },
     select: { id: true, name: true },
   });
 
@@ -60,12 +63,14 @@ export default organizationRequest(async function ConversationPage({
         isSpam={conversation.isSpam}
       />
       <div className="flex items-center justify-between border-b px-3 py-2 text-sm"><span>{conversation.contact.name}</span><Link className="underline" href={`/contacts/${conversation.contactId}`}>כרטיס לקוח והסרה מדיוור</Link></div>
+      <div className="border-b px-3 py-1 text-xs text-muted-foreground">מספר השיחה: {conversation.providerCredential ? `${conversation.providerCredential.label || "WhatsApp"} · ${conversation.providerCredential.displayPhoneNumber || "מספר עסקי"}` : "הדגמה בלבד"}</div>
       <InternalNotes key={conversation.id} conversationId={conversation.id} notes={conversation.notes.map((note) => ({ id: note.id, body: note.body, createdAt: note.createdAt.toISOString(), author: { name: note.author.name } }))} />
       <div className="flex min-h-0 flex-1">
       <ChatPanel
         key={conversation.id}
         conversationId={conversation.id}
         initialMessages={messages}
+        senderUnavailable={senderUnavailable}
         composerDisabled={composerDisabled}
         composerDisabledReason="עברו יותר מ-24 שעות מאז הודעת הלקוח האחרונה — יש לשלוח תבנית מאושרת."
       />

@@ -7,12 +7,13 @@ import { AutomationTrigger, ConversationSource, ConversationStatus, MessageDirec
 import { publishConversationUpdated, publishNewMessage } from "@/lib/realtime/publish";
 import { writeAuditLog } from "@/lib/audit";
 import { evaluateTrigger, scheduleNoReplyChecks } from "@/server/services/automation-service";
-import { getActiveProvider } from "@/server/providers/provider-registry";
+import { getActiveProvider, ProviderUnavailableError } from "@/server/providers/provider-registry";
 import { MockWhatsAppProvider } from "@/server/providers/mock-whatsapp-provider";
 import type { OutboundMessagePayload } from "@/server/providers/whatsapp-provider";
 
 export interface CreateInboundMessageInput {
   contactId: string;
+  providerCredentialId?: string | null;
   body: string;
   type?: MessageType;
   mediaUrl?: string;
@@ -30,6 +31,7 @@ export interface CreateInboundMessageInput {
  * change when a real provider is plugged in.
  */
 export async function createInboundMessage(input: CreateInboundMessageInput) {
+  const providerCredentialId = input.providerCredentialId ?? (input.source === ConversationSource.WHATSAPP ? (await getActiveProvider()).credentialId ?? null : null);
   const result = await prisma.$transaction(async (tx) => {
     // Serialize inbound messages for the same contact, including different
     // provider IDs arriving at once when no conversation exists yet.
@@ -42,19 +44,19 @@ export async function createInboundMessage(input: CreateInboundMessageInput) {
       await tx.contact.update({ where: { id: input.contactId }, data: { consentStatus: "OPTED_OUT", consentAt: new Date(), consentSource: "whatsapp", consentScope: "marketing", consentEvidence: input.providerMessageId ?? "inbound-demo" } });
     }
     const openConversation = await tx.conversation.findFirst({
-      where: { contactId: input.contactId, status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] } },
+      where: { contactId: input.contactId, providerCredentialId, status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] } },
       orderBy: { createdAt: "desc" },
     });
     const previous = !openConversation ? await tx.conversation.findFirst({
-      where: { contactId: input.contactId, assignedAgent: { isActive: true } }, orderBy: { createdAt: "desc" },
+      where: { contactId: input.contactId, providerCredentialId, assignedAgent: { isActive: true } }, orderBy: { createdAt: "desc" },
     }) : null;
     const conversation = openConversation ?? await tx.conversation.create({ data: {
-      contactId: input.contactId, assignedAgentId: previous?.assignedAgentId ?? null, status: ConversationStatus.OPEN, source: input.source ?? ConversationSource.MOCK,
+      contactId: input.contactId, providerCredentialId, assignedAgentId: previous?.assignedAgentId ?? null, status: ConversationStatus.OPEN, source: input.source ?? ConversationSource.MOCK,
     } });
     const receivedAt = input.receivedAt ?? new Date();
     const attachmentId = randomUUID();
     const message = await tx.message.create({ data: {
-      conversationId: conversation.id, direction: MessageDirection.INBOUND,
+      conversationId: conversation.id, providerCredentialId, direction: MessageDirection.INBOUND,
       type: input.type ?? MessageType.TEXT, body: input.body, status: MessageStatus.SENT,
       createdAt: receivedAt, inboundKey: input.providerMessageId, providerMessageId: input.providerMessageId,
       ...(input.media ? { attachments: { create: [{ id: attachmentId, url: `/api/attachments/${attachmentId}`, ...input.media }] } } : {}),
@@ -133,7 +135,7 @@ async function sendOutboundMessage(input: CreateOutboundMessageInput) {
 
   const conversation = await prisma.conversation.findUniqueOrThrow({
     where: { id: input.conversationId },
-    include: { contact: true },
+    include: { contact: true, providerCredential: { select: { teamId: true } } },
   });
 
   const serviceWindow = !!conversation.lastInboundAt && now.getTime() - conversation.lastInboundAt.getTime() < 86400000;
@@ -155,7 +157,11 @@ async function sendOutboundMessage(input: CreateOutboundMessageInput) {
   }
   const eligibility = eligibilityError(conversation.contact, marketing, serviceWindow);
   if (eligibility) throw new MessagePolicyError(eligibility);
-  const provider = await getActiveProvider();
+  let provider;
+  try { provider = await getActiveProvider(conversation.providerCredentialId); }
+  catch (error) { if (error instanceof ProviderUnavailableError) throw new MessagePolicyError(error.message); throw error; }
+  const actor = await prisma.user.findUnique({ where: { id: input.sentByUserId }, select: { isActive: true, role: true, teamId: true } });
+  if (!actor?.isActive || (actor.role === "AGENT" && (conversation.assignedAgentId !== null && conversation.assignedAgentId !== input.sentByUserId || conversation.providerCredential?.teamId && conversation.providerCredential.teamId !== actor.teamId))) throw new MessagePolicyError("אין הרשאה לשלוח בשיחה זו");
   if (provider instanceof MockWhatsAppProvider && (conversation.source === "WHATSAPP" || await prisma.message.findFirst({ where: { conversationId: conversation.id, providerCredentialId: { not: null } }, select: { id: true } }))) throw new MessagePolicyError("חיבור WhatsApp נותק. יש לחבר מחדש לפני שליחה בשיחה זו");
   if (provider.requiresVerifiedInbound && !input.templateId) {
     const verifiedInbound = await prisma.message.findFirst({ where: {

@@ -19,10 +19,11 @@ interface Props {
   contacts: { id: string; name: string; phone: string; consentStatus: string }[];
   templates: { id: string; name: string; body: string; language?: string }[];
   mock: boolean;
+  senders?: { id: string; label: string; displayPhoneNumber: string | null; isDefault: boolean; sendingBlocked: boolean }[];
 }
 const selectClass = "w-full rounded-md border bg-background p-2 text-sm";
 
-export function CampaignDashboard({ initialCampaigns, lists, contacts, templates, mock }: Props) {
+export function CampaignDashboard({ initialCampaigns, lists, contacts, templates, mock, senders = [] }: Props) {
   const router = useRouter();
   const [review, setReview] = useState<{ campaign: Campaign; action: string; eligible: number; totalQueued: number; exclusions: Record<string, number>; blockers: string[]; samples: { name: string; body: string }[]; sender: string } | null>(null);
   const [campaignSearch, setCampaignSearch] = useState("");
@@ -30,6 +31,7 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
   const [tab, setTab] = useState<"campaigns" | "lists">("campaigns");
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
+  const [providerCredentialId, setProviderCredentialId] = useState(senders.find((sender) => sender.isDefault)?.id || senders[0]?.id || "");
   const [listId, setListId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
@@ -115,9 +117,10 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
         <div className="space-y-3"><h2 className="font-semibold">קמפיין חדש</h2>
           <label className="block space-y-1"><span>שם הקמפיין</span><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} /></label>
           <label className="block space-y-1"><span>רשימת תפוצה</span><select className={selectClass} value={listId} onChange={(e) => setListId(e.target.value)}><option value="">בחר רשימה</option>{lists.map((list) => <option key={list.id} value={list.id}>{list.name} ({list._count.members})</option>)}</select></label>
+          <label className="block space-y-1"><span>מספר שולח</span><select aria-label="מספר שולח לקמפיין" className={selectClass} value={providerCredentialId} onChange={(event) => setProviderCredentialId(event.target.value)}>{mock ? <option value="">הדגמה בלבד — לא נשלחות הודעות WhatsApp</option> : senders.map((sender) => <option key={sender.id} value={sender.id} disabled={sender.sendingBlocked}>{sender.label}{sender.displayPhoneNumber ? ` · ${sender.displayPhoneNumber}` : ""}{sender.sendingBlocked ? " — חסום" : ""}</option>)}</select></label>
           <label className="block space-y-1"><span>תבנית מאושרת</span><select className={selectClass} value={templateId} onChange={(e) => { setTemplateId(e.target.value); setVariables({}); }}><option value="">בחר תבנית</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.language ? ` (${t.language})` : ""}</option>)}</select></label>
           {template && templateParameterKeys(template.body).map((key) => <label key={key} className="block space-y-1"><span>משתנה {key}</span><Input value={variables[key] ?? ""} onChange={(e) => setVariables({ ...variables, [key]: e.target.value })} placeholder="השתמש ב־{name} לשם הנמען" maxLength={1024} /></label>)}
-          <Button disabled={busy || !name.trim() || !listId || !template || templateParameterKeys(template.body).some((key) => !variables[key]?.trim())} onClick={async () => { if (await mutate("/api/campaigns", "POST", { name, listId, templateId, variables })) { setName(""); toast.success("הטיוטה נשמרה. ניתן להתחיל או לתזמן שליחה"); } }}>שמור טיוטה</Button>
+          <Button disabled={busy || (!mock && !senders.some((sender) => sender.id === providerCredentialId && !sender.sendingBlocked)) || !name.trim() || !listId || !template || templateParameterKeys(template.body).some((key) => !variables[key]?.trim())} onClick={async () => { if (await mutate("/api/campaigns", "POST", { name, listId, templateId, variables, providerCredentialId: providerCredentialId || null })) { setName(""); toast.success("הטיוטה נשמרה. ניתן להתחיל או לתזמן שליחה"); } }}>שמור טיוטה</Button>
         </div>
         <div className="space-y-3"><h3 className="text-sm font-medium">תצוגה מקדימה</h3><div className="min-h-32 whitespace-pre-wrap rounded-xl bg-emerald-50 p-4 text-emerald-950">{template ? renderTemplate(template.body, variables).replaceAll("{name}", "ישראל") : "בחר תבנית להצגת ההודעה"}</div><p className="text-sm text-muted-foreground">הנמענים נשמרים בעת יצירת הטיוטה. הסכמה לדיוור נבדקת מחדש בזמן השליחה. עצירה אינה מבטלת הודעה שכבר נשלחת.</p></div>
       </section>

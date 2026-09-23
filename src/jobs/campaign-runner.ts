@@ -37,7 +37,7 @@ export async function processDueCampaigns(deadline = Date.now() + 45_000) {
         continue;
       }
       const template = await prisma.template.findUnique({ where: { id: campaign.templateId } });
-      if (!campaign.senderSnapshot || campaign.senderSnapshot !== await activeSenderSnapshot() || !template || template.status !== "APPROVED" || campaign.templateSnapshot !== templateFingerprint(template)) {
+      if (!campaign.senderSnapshot || campaign.senderSnapshot !== await activeSenderSnapshot(campaign.providerCredentialId) || !template || template.status !== "APPROVED" || campaign.templateSnapshot !== templateFingerprint(template)) {
         await prisma.campaign.updateMany({ where: { id: campaign.id, status: "RUNNING" }, data: { status: "PAUSED" } });
         await prisma.campaignRecipient.update({ where: { id: recipient.id }, data: { status: "QUEUED", claimedAt: null, error: "החיבור או התבנית השתנו. יש ליצור טיוטה חדשה לאחר בדיקה" } });
         continue;
@@ -52,8 +52,8 @@ export async function processDueCampaigns(deadline = Date.now() + 45_000) {
       const conversation = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Contact" WHERE id = ${contact.id} FOR UPDATE`;
         return await tx.conversation.findFirst({
-        where: { contactId: contact.id, status: { in: ["OPEN", "PENDING"] }, isSpam: false }, orderBy: { createdAt: "desc" },
-      }) ?? await tx.conversation.create({ data: { contactId: contact.id, source: "MANUAL" } });
+        where: { contactId: contact.id, providerCredentialId: campaign.providerCredentialId, status: { in: ["OPEN", "PENDING"] }, isSpam: false }, orderBy: { createdAt: "desc" },
+      }) ?? await tx.conversation.create({ data: { contactId: contact.id, providerCredentialId: campaign.providerCredentialId, source: "MANUAL" } });
       });
       const { message } = await createOutboundMessage({
         conversationId: conversation.id, body: "", templateId: campaign.templateId,

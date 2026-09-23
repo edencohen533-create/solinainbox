@@ -4,7 +4,7 @@ import { normalizePhone } from "@/lib/phone";
 import { writeAuditLog } from "@/lib/audit";
 import type { ContactInput } from "@/lib/validation/contact";
 import type { Session } from "next-auth";
-import { buildConversationScope } from "./conversation-service";
+import { buildConversationScope, buildContactScope } from "./conversation-service";
 import type { Prisma } from "@prisma/client";
 
 export class DuplicateContactError extends Error {
@@ -21,13 +21,7 @@ export class InvalidPhoneError extends Error {
   }
 }
 
-export function buildContactScope(session: Session): Prisma.ContactWhereInput {
-  return session.user.role === "AGENT" ? { OR: [
-    { conversations: { none: {} } },
-    { conversations: { some: { assignedAgentId: session.user.id } } },
-    { conversations: { none: { assignedAgentId: { not: null } } } },
-  ] } : {};
-}
+export { buildContactScope } from "./conversation-service";
 
 export async function listContacts(session: Session, search?: string) {
   const where: Prisma.ContactWhereInput = search

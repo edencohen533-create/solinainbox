@@ -222,7 +222,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
         }
         for (const status of value.statuses ?? []) {
           const mapped = META_STATUS_TO_MESSAGE_STATUS[status.status];
-          if (mapped) await updateProviderMessageStatus(status.id, mapped, providerTimestamp(status.timestamp));
+          if (mapped) await updateProviderMessageStatus(status.id, mapped, providerTimestamp(status.timestamp), this.credentialId);
         }
       }
     }
@@ -249,6 +249,7 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     const attachment = message.image ?? message.video ?? message.audio ?? message.document;
     await createInboundMessage({
       contactId: contact.id,
+      providerCredentialId: this.credentialId,
       providerMessageId: message.id,
       receivedAt: providerTimestamp(message.timestamp),
       media: attachment ? { providerMediaId: attachment.id, mimeType: attachment.mime_type ?? "application/octet-stream", fileName: attachment.filename } : undefined,

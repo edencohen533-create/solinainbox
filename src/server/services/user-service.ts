@@ -58,3 +58,14 @@ export async function resetUserPassword(id: string, password: string, actorUserI
   await writeAuditLog({ actorUserId, action: "user.password_changed", entityType: "User", entityId: id });
   return user;
 }
+
+export class InvalidTeamError extends Error {}
+export async function setUserTeam(id: string, teamId: string | null, actorUserId: string) {
+  return prisma.$transaction(async (tx) => {
+    if (teamId && !await tx.team.findUnique({ where: { id: teamId }, select: { id: true } })) throw new InvalidTeamError("הצוות אינו נגיש");
+    const user = await tx.user.update({ where: { id }, data: { teamId }, select: publicUserFields });
+    if (user.role === "AGENT") await tx.conversation.updateMany({ where: { assignedAgentId: id, providerCredential: { teamId: teamId ? { not: teamId } : { not: null } } }, data: { assignedAgentId: null } });
+    await tx.auditLog.create({ data: { actorUserId, action: "user.team_changed", entityType: "User", entityId: id, metadata: { teamId } } });
+    return user;
+  });
+}
