@@ -36,9 +36,11 @@ export async function previewAutomation(input: unknown, conversationId: string) 
   if (rule.actionType === "SEND_TEMPLATE" || rule.actionType === "SEND_CANNED_REPLY") {
     const windowOpen = !!conversation.lastInboundAt && now.getTime() - conversation.lastInboundAt.getTime() < 86400000;
     let marketing = false;
+    let templateBinding: { providerTemplateId: string | null; providerAccountId: string | null } | null = null;
     if (conversation.assignedAgentId) reasons.push("נציג מטפל בשיחה ולכן המענה האוטומטי נעצר");
     if (rule.actionType === "SEND_TEMPLATE") {
       const template = await prisma.template.findUniqueOrThrow({ where: { id: String(config.templateId) } });
+      templateBinding = template;
       marketing = template.category === "MARKETING";
       const variables = personalizeVariables((config.variables ?? {}) as Record<string, string>, conversation.contact.name);
       if (Object.values(variables).some((value) => /\{[^{}]+\}/.test(value))) reasons.push("נותרו משתנים לא פתורים");
@@ -53,7 +55,11 @@ export async function previewAutomation(input: unknown, conversationId: string) 
     try {
       const sender = await resolveSender(conversation.providerCredentialId);
       provider = sender?.provider === "meta_whatsapp_cloud_api" ? "Meta — לא בוצעה פנייה לספק" : "Mock — הדגמה";
-      if (!sender && conversation.source === "WHATSAPP") reasons.push("חיבור WhatsApp נותק");
+      if ((!sender || sender.provider === "mock") && conversation.source === "WHATSAPP") reasons.push("חיבור WhatsApp נותק");
+      if (sender?.provider === "meta_whatsapp_cloud_api" && templateBinding) {
+        const account = (sender.config as { businessAccountId?: string }).businessAccountId;
+        if (!templateBinding.providerTemplateId || !account || templateBinding.providerAccountId !== account) reasons.push("התבנית אינה משויכת לחשבון Meta של המספר");
+      }
       if (sender?.provider === "meta_whatsapp_cloud_api" && rule.actionType === "SEND_CANNED_REPLY" && !await prisma.message.findFirst({ where: { conversationId, direction: "INBOUND", inboundKey: { not: null }, createdAt: { gt: new Date(now.getTime() - 86400000) } }, select: { id: true } })) reasons.push("אין הודעה נכנסת מאומתת בחלון המענה");
     } catch { reasons.push("המספר מנותק, חסום או אינו נגיש"); }
   }
