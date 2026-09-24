@@ -51,6 +51,7 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<{ id: string; name: string; total: number; page: number; recipients: Recipient[] } | null>(null);
+  const segmentInvalid = !!segment && !audienceSchema.safeParse(segment).success;
   const template = templates.find((t) => t.id === templateId);
   const filtered = contacts.filter((c) => `${c.name} ${c.phone}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -110,13 +111,14 @@ export function CampaignDashboard({ initialCampaigns, lists, contacts, templates
         <label className="block space-y-1"><span>שם הרשימה</span><Input aria-label="שם רשימת תפוצה" value={listName} onChange={(e) => setListName(e.target.value)} maxLength={120} /></label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!segment} onChange={(event) => setSegment(event.target.checked ? defaultAudience() : null)} />קהל שמור לפי תנאים</label>
         <p className="text-xs text-muted-foreground">תנאים מחושבים ביצירת טיוטת קמפיין. רשימת הנמענים מוקפאת בטיוטה; חסימות והסרות נבדקות שוב בכל שליחה. עד 10,000 נמענים בקמפיין.</p>
+        {segmentInvalid && <p role="alert" className="text-sm text-destructive">יש להשלים ערכים תקינים בכל התנאים. מותר לשמור עד 50 תנאים וקבוצות, בשלוש רמות, וטקסט עד 200 תווים.</p>}
         {segment ? <><AudienceEditor value={segment} onChange={setSegment} options={audienceOptions} /><AudiencePreview segment={segment} /></> : <>
         <Input aria-label="חיפוש אנשי קשר" placeholder="חיפוש לפי שם או טלפון" value={search} onChange={(e) => setSearch(e.target.value)} />
         <p className="text-sm text-muted-foreground">{selected.length} נבחרו. רק נמענים עם הסכמה פעילה יקבלו הודעות. מוצגים עד 1,000 אנשי קשר.</p>
         <Button variant="outline" onClick={() => setSelected([...new Set([...selected, ...filtered.filter((c) => c.consentStatus === "OPTED_IN").map((c) => c.id)])])}>בחר את כל המסכימים בתוצאות</Button>
         <div className="max-h-72 space-y-2 overflow-y-auto">{filtered.map((contact) => <label key={contact.id} className="flex items-center gap-3 rounded border p-2 text-sm"><input type="checkbox" checked={selected.includes(contact.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, contact.id] : selected.filter((id) => id !== contact.id))} /><span className="flex-1">{contact.name} <span dir="ltr" className="text-muted-foreground">{contact.phone}</span></span><span>{contact.consentStatus === "OPTED_IN" ? "מאשר דיוור" : contact.consentStatus === "OPTED_OUT" ? "הוסר מדיוור" : "ללא הסכמה"}</span></label>)}</div>
         </>}
-        <div className="flex gap-2"><Button disabled={busy || !listName.trim() || (segment ? !audienceSchema.safeParse(segment).success : !selected.length)} onClick={async () => {
+        <div className="flex gap-2"><Button disabled={busy || !listName.trim() || (segment ? segmentInvalid : !selected.length)} onClick={async () => {
           if (await mutate(editingList ? `/api/distribution-lists/${editingList}` : "/api/distribution-lists", editingList ? "PUT" : "POST", { name: listName, contactIds: segment ? [] : selected, segment })) { setListName(""); setSelected([]); setSegment(null); setEditingList(null); toast.success("הרשימה נשמרה"); }
         }}>שמור רשימה</Button>{editingList && <Button variant="outline" onClick={() => { setEditingList(null); setListName(""); setSelected([]); setSegment(null); }}>ביטול עריכה</Button>}</div>
       </section>

@@ -27,3 +27,5 @@ Migration `20260924010220_whatsapp_saved_audiences.sql` adds nullable segment JS
 New tests cover bounded predicates, foreign/negative references, late-preview races, real nested AND/OR/exclusions, frozen membership despite later edits, opt-out after activation, latest-message date semantics, previous campaign result selection, and a 10,000-row API import plus a 10,000-recipient draft in isolated PostgreSQL without activating that bulk campaign. The older 10,000-recipient worker test uses a mocked database/provider and is not a live throughput benchmark.
 
 Production migration applied on 2026-09-24 as `20260924010220_whatsapp_saved_audiences`. Preflight found 262 contacts, 459 messages and zero active Meta numbers/campaigns/lists. Security advisor returned no findings after the additive migration.
+
+Additional regression on 2026-09-24: one real PostgreSQL test passed in 55.02 seconds, confirming that excluding a source segment retains contacts with NULL source and that preview counts equal the frozen draft. The final build and lint passed after this fix.

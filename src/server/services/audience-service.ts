@@ -12,7 +12,8 @@ export function audienceWhere(node: AudienceNode, now = new Date()): Prisma.Cont
   if ("conditions" in node) return { [node.operator]: node.conditions.map((child) => audienceWhere(child, now)) };
   switch (node.field) {
     case "tag": return { tags: { [node.operator === "is" ? "some" : "none"]: { tagId: node.value } } };
-    case "source": return { source: { [node.operator]: node.value, mode: "insensitive" } };
+    // Explicit non-null guard keeps NOT/exclusions two-valued: a missing source must not disappear.
+    case "source": return { AND: [{ source: { not: null } }, { source: { [node.operator]: node.value, mode: "insensitive" } }] };
     case "custom": return { customFields: { some: { key: node.key, value: { [node.operator]: node.value, mode: "insensitive" } } } };
     case "agent": return { conversations: { some: { assignedAgentId: node.value } } };
     case "consent": return { consentStatus: node.value };

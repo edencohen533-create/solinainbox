@@ -27,18 +27,18 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 2.15,אנשי קשר והסכמה,ייבוא חוזר אינו מחזיר לדיוור,מומש ונבדק,P0,createMany skipDuplicates אינו משנה איש קשר קיים,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
 2.16,אנשי קשר והסכמה,זכאות מחדש בזמן שליחה,מומש ונבדק,P0,worker + message service לפני ספק; מרוץ לאחר הבדיקה האחרון עדיין אפשרי,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
 2.17,אנשי קשר והסכמה,הפרדת שירות משיווק,מומש ונבדק,P0,מענה בתוך חלון אפשרי אחרי opt-out שיווקי; חסימה מלאה מונעת הכול,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
-3.01,קהלים וסגמנטים,תגיות ושדות מותאמים בסגמנטים,חסר,P1,בחירה ידנית/CSV בלבד,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.02,קהלים וסגמנטים,מקור ליד וסטטוס CRM,חסר,P1,source קיים; אין LeadStage או builder סגמנטים,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.03,קהלים וסגמנטים,סינון קהל לפי נציג,חסר,P1,אין בחירת קהל דינמית לפי שיוך,src/server/services/campaign-service.ts; prisma/schema.prisma
+3.01,קהלים וסגמנטים,תגיות ושדות מותאמים בסגמנטים,מומש ונבדק,P1,תנאי תגיות ושדות מותאמים במנוע הקיים; נבדקו מול PostgreSQL מבודד,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.02,קהלים וסגמנטים,מקור ליד וסטטוס CRM,מומש חלקית,P1,סינון לפי מקור ליד מומש ונבדק; אין שדה שלב CRM עצמאי,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.03,קהלים וסגמנטים,סינון קהל לפי נציג,מומש חלקית,P1,סינון לפי נציג המשויך לאחת השיחות נבדק; אין בעלים עצמאי לאיש קשר,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
 3.04,קהלים וסגמנטים,רכישות מוצר ותאריך,חסום לבדיקה,P1,אין אינטגרציית רכישות או הזמנות; נדרש מקור CRM,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.05,קהלים וסגמנטים,הודעה ותגובה אחרונה,חסר,P1,נתונים בשיחות; אין תנאים בקהל,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.06,קהלים וסגמנטים,השתתפות ותוצאת קמפיין קודם,חסר,P1,CampaignRecipient שומר היסטוריה; אין מסנן קהלים,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.07,קהלים וסגמנטים,הסכמה והסרה וזכאות,מומש חלקית,P0,בחירת מסכימים ובדיקת preflight/dispatch; לא builder תנאים,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.08,קהלים וסגמנטים,תנאי AND/OR,חסר,P1,אין מנוע סגמנטים,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.09,קהלים וסגמנטים,החרגת קהלים,חסר,P1,רק הסרות וחסימות; אין קהל החרגה מפורש,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.10,קהלים וסגמנטים,שמירת סגמנטים,חסר,P1,רשימות סטטיות נשמרות; אינן סגמנטים דינמיים,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.11,קהלים וסגמנטים,ספירת נמענים לפני שליחה,מומש חלקית,P0,נוסף preflight עם מכנה queued ופירוט החרגות,src/server/services/campaign-service.ts; prisma/schema.prisma
-3.12,קהלים וסגמנטים,מדיניות קהל מתוזמן,מומש ונבדק,P0,"מוקפא ביצירת טיוטה, מוקדם מהתזמון; מוצג בממשק; זכאות נבדקת מחדש",src/server/services/campaign-service.ts; prisma/schema.prisma
+3.05,קהלים וסגמנטים,הודעה ותגובה אחרונה,מומש ונבדק,P1,תנאים לפי ההודעה האחרונה בכל השיחות: נכנסת/יוצאת/כל הודעה; לפני אחרי וללא הודעה נבדקו במסד,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.06,קהלים וסגמנטים,השתתפות ותוצאת קמפיין קודם,מומש חלקית,P1,השתתפות ותוצאת תור בקמפיין קודם נבדקו; אין תנאי לפי delivered/read,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.07,קהלים וסגמנטים,הסכמה והסרה וזכאות,מומש ונבדק,P0,תנאי הסכמה חסימה וזכאות מקומית; בדיקה נוספת בכל שליחה,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.08,קהלים וסגמנטים,תנאי AND/OR,מומש ונבדק,P1,AND/OR מקוננים עד 3 רמות ו־50 צמתים; אימות קלט ובדיקות מסד,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.09,קהלים וסגמנטים,החרגת קהלים,מומש ונבדק,P1,עד 20 רשימות או סגמנטים מוחרגים; התאמת ספירה לטיוטה נבדקה גם עבור ערכי NULL,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.10,קהלים וסגמנטים,שמירת סגמנטים,מומש ונבדק,P1,תנאים נשמרים ב־DistributionList הקיים ומחושבים ביצירת טיוטה,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.11,קהלים וסגמנטים,ספירת נמענים לפני שליחה,מומש ונבדק,P0,ספירות מסד אמיתיות להתאמות החרגות וזכאות; 5 דוגמאות; נתונים ישנים מוסתרים בשינוי תנאי,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
+3.12,קהלים וסגמנטים,מדיניות קהל מתוזמן,מומש ונבדק,P0,קהל ותנאי החרגה מוקפאים ביצירת טיוטה; שינוי סגמנט אינו משנה נמענים; הסרה לאחר מכן נבדקת בשליחה,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
 4.01,תבניות,סנכרון מהספק,מומש ונבדק,P0,"Graph מדומה: pagination, סטטוס ו־WABA; בדיקה חיה חסומה",src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
 4.02,תבניות,יצירה והגשה לאישור,מומש ונבדק,P0,תבניות טקסט Marketing/Utility; Graph מדומה; לא נשלחה תבנית אמיתית,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
 4.03,תבניות,שפה קטגוריה וסטטוס,מומש ונבדק,P1,מסד וממשק; default חדש DRAFT,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
@@ -53,7 +53,7 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 4.12,תבניות,בחירת תבנית או הודעה חופשית,מומש ונבדק,P0,24 שעות ומקור inbound מאומת ל־Meta; אין שימוש בהיסטוריית דמו לפתיחת חלון,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
 4.13,תבניות,אין אישור מקומי מזויף,מומש ונבדק,P0,אישור רק מתשובת ספק; ברירת מחדל DRAFT; seed מסומן דמו,src/server/services/template-sync-service.ts; template-submit-service.ts; src/lib/campaigns.ts
 5.01,בניית קמפיינים,בחירת מספר שולח,מומש ונבדק,P0,בורר מספר בממשק; שמירת credential בקמפיין ו־snapshot נפרד; שינוי ברירת מחדל לא משנה קמפיין קיים. בדיקת DB עם Graph מדומה,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts; docs/whatsapp-multiple-numbers-2026-09-23.md
-5.02,בניית קמפיינים,בחירת קהל והחרגות,מומש חלקית,P1,רשימה סטטית; אין סגמנט/החרגת רשימה,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
+5.02,בניית קמפיינים,בחירת קהל והחרגות,מומש ונבדק,P1,רשימות סטטיות וסגמנטים שמורים עם החרגות; בדיקות מסד לתצוגה מקדימה ויצירת טיוטה,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts; docs/whatsapp-saved-audiences-2026-09-23.md
 5.03,בניית קמפיינים,בחירת תבנית ושפה,מומש ונבדק,P0,מאושרות בלבד ו־WABA פעיל; שפה מוצגת,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
 5.04,בניית קמפיינים,מיפוי משתנים,מומש חלקית,P1,ערך קבוע ו־{name}; אין שדות custom או fallback,src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
 5.05,בניית קמפיינים,צירוף מדיה בקמפיין,חסר,P1,"שליחת מדיה קיימת בשירות, לא בתבניות קמפיין",src/components/campaigns/campaign-dashboard.tsx; src/server/services/campaign-service.ts
@@ -189,7 +189,7 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 14.10,QA מעשי,שתי אוטומציות לאותו נמען,מומש חלקית,P0,marketing CAS ו־lease נבדקים; workflow כפול E2E חסר,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.11,QA מעשי,שני נציגים עונים,מומש חלקית,P0,lease ואידמפוטנטיות בבדיקות; אין presence UI,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.12,QA מעשי,גישה לעסק אחר,מומש ונבדק,P0,5 בדיקות PostgreSQL/API עם שני עסקים סינתטיים; חשבון הלקוח בסשן נקבע מחדש במסד; ללא Meta חי,tests/qa/organization-isolation.test.ts; tests/unit/organization-boundary.test.ts
-14.13,QA מעשי,ייבוא גדול ו־10k קמפיין מדומה,מומש ונבדק,P1,parser10k ו־worker10000 עם DB מדומה; אינו benchmark DB או Meta,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
+14.13,QA מעשי,ייבוא גדול ו־10k קמפיין מדומה,מומש ונבדק,P1,ייבוא API אמיתי של 10000 אנשי קשר וטיוטת 10000 נמענים במסד QA; בנוסף worker עם DB וספק מדומים; אין benchmark Meta,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs; docs/whatsapp-saved-audiences-2026-09-23.md
 14.14,QA מעשי,דוחות מול נתונים ידועים,מומש חלקית,P0,counts מדומים; זמן טיפול מטעה הוסר; suite מדדים מלא חסר,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 14.15,QA מעשי,אפס הודעות אמיתיות ללקוחות,מומש ונבדק,P0,Graph mock וחיבור בדיקה מבודד; אין active Meta בפרודקשן,tests/unit; tests/qa/meta-workflows.test.ts; scripts/qa-browser.cjs
 15.01,מסירה,מטריצה לכל הדרישות,מומש ונבדק,P0,מסמך זה עם סטטוס עדיפות השפעה ונתיב ראיה,docs/whatsapp-completeness-2026-09-23.md
