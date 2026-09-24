@@ -8,7 +8,7 @@
 
 Next.js 16 / React → NextAuth והרשאות API → שירותי שרת → Prisma / Supabase Postgres → Provider Registry → Meta Cloud API או Mock. הודעות נכנסות עוברות אימות HMAC, נרמול איש קשר, שמירה, אוטומציות והודעת invalidation ללא תוכן לקוח. הדפדפן טוען נתונים דרך API מורשה. קמפיינים נשמרים כ־Campaign + CampaignRecipient ומעובדים ב־cron במנות. אין צורך בלשונית פתוחה.
 
-החיבור הוא **Meta WhatsApp Cloud API הרשמי, ישירות דרך Graph**, לא חיבור WhatsApp Web/QR בלתי רשמי ולא BSP. החיבור הקיים מקבל Token / Phone Number ID / WABA / App Secret; אין Embedded Signup. Registry בוחר חיבור פעיל יחיד. אין Organization/Tenant, אין מספרים מרובים, ואין אינטגרציית CRM חיצונית/רכישות/חייגן. הרשאות נציגים אינן הפרדה בין עסקים. פריסה זו מיועדת לעסק יחיד בלבד עד להשלמת ארכיטקטורה מתאימה.
+החיבור הוא **Meta WhatsApp Cloud API הרשמי, ישירות דרך Graph**, לא חיבור WhatsApp Web/QR בלתי רשמי ולא BSP. החיבור הקיים מקבל Token / Phone Number ID / WABA / App Secret; אין Embedded Signup. עדכון 24.09: קיימת כעת הפרדה בין עסקים עם RLS ותפקיד runtime, וכמה מספרים מאותו WABA לעסק, עם שיוך לצוות וקיבוע שיחות וקמפיינים למספר. אין עדיין אינטגרציית CRM חיצונית/רכישות/חייגן. נוספו קהלים שמורים והחרגות. ראיות עדכניות: [הפרדה בין עסקים](whatsapp-business-isolation-2026-09-23.md), [מספרים וצוותים](whatsapp-multiple-numbers-2026-09-23.md), [קהלים והחרגות](whatsapp-saved-audiences-2026-09-23.md). יתר התוצאות במסמך זה מתעדות את שלב הבדיקה המקורי; המטריצה היא ריכוז הסטטוס המעודכן.
 
 ## אימות מול מקורות רשמיים
 
