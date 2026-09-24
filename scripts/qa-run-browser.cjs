@@ -28,7 +28,7 @@ const run = (args, env = process.env) => new Promise((resolve, reject) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   if (!process.argv.includes('--browser-only')) await run(['scripts/smoke-deployment.cjs', 'http://localhost:3101'], { ...process.env, SMOKE_TEST_EMAIL: 'qa-admin@example.test', SMOKE_TEST_PASSWORD: 'QA-only-Password-2026!' });
-  if (!process.argv.includes('--smoke-only')) await run([process.argv.includes('--automation-only') ? 'scripts/qa-automation-browser.cjs' : 'scripts/qa-browser.cjs', ...process.argv.slice(2)]);
+  if (!process.argv.includes('--smoke-only')) await run([process.argv.includes('--crm-only') ? 'scripts/qa-crm-browser.cjs' : process.argv.includes('--automation-only') ? 'scripts/qa-automation-browser.cjs' : 'scripts/qa-browser.cjs', ...process.argv.slice(2)]);
 })().catch((error) => { console.error(error.message); process.exitCode = 1; }).finally(() => { server.kill('SIGTERM'); });
 server.on('close', () => fs.closeSync(output));
 process.on('SIGTERM', () => { server.kill('SIGTERM'); process.exit(143); });

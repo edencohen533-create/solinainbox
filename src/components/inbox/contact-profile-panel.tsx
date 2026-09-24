@@ -13,8 +13,8 @@ interface ContactProfileData {
 }
 
 const CONSENT_LABELS: Record<string, string> = {
-  OPTED_IN: "הסכים לקבל הודעות",
-  OPTED_OUT: "סירב לקבל הודעות",
+  OPTED_IN: "הסכים לדיוור שיווקי",
+  OPTED_OUT: "הוסר מדיוור שיווקי",
   UNKNOWN: "לא ידוע",
 };
 

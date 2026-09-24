@@ -16,7 +16,7 @@ async function request(path, options = {}, authenticated = true) {
   return response;
 }
 (async () => {
-  for (const [path, status] of [['/login', 200], ['/api/campaigns', 403], ['/api/cron/process-campaigns', 401], ['/api/cron/process-automations', 401], ['/api/contacts/export', 403]]) {
+  for (const [path, status] of [['/login', 200], ['/api/campaigns', 403], ['/api/cron/process-campaigns', 401], ['/api/cron/process-automations', 401], ['/api/contacts/export', 403], ['/api/tasks', 401]]) {
     const response = await request(path, {}, false); await response.body?.cancel();
     assert.equal(response.status, status, `${path}: unexpected public response`); console.log(`PASS public ${path}: ${status}`);
   }
@@ -50,6 +50,9 @@ async function request(path, options = {}, authenticated = true) {
         const messages = await request(`/api/conversations/${conversations[0].id}/messages`);
         assert.equal(messages.status, 200); const snapshot = await messages.json(); assert.ok(Array.isArray(snapshot.messages));
         console.log('PASS authorized message snapshot');
+        const tasks = await request(`/api/tasks?contactId=${encodeURIComponent(conversations[0].contactId)}`);
+        assert.equal(tasks.status, 200); assert.ok(Array.isArray((await tasks.json()).tasks));
+        console.log('PASS authorized CRM task snapshot');
       }
     }
     console.log(`PASS authenticated ${path}`);

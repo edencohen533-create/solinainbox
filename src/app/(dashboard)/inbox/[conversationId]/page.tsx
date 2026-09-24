@@ -1,3 +1,4 @@
+import { ContactTasks } from "@/components/contacts/contact-tasks";
 import { organizationRequest } from "@/lib/organization-request";
 import { InternalNotes } from "@/components/inbox/internal-notes";
 import Link from "next/link";
@@ -64,6 +65,7 @@ export default organizationRequest(async function ConversationPage({
       />
       <div className="flex items-center justify-between border-b px-3 py-2 text-sm"><span>{conversation.contact.name}</span><Link className="underline" href={`/contacts/${conversation.contactId}`}>כרטיס לקוח והסרה מדיוור</Link></div>
       <div className="border-b px-3 py-1 text-xs text-muted-foreground">מספר השיחה: {conversation.providerCredential ? `${conversation.providerCredential.label || "WhatsApp"} · ${conversation.providerCredential.displayPhoneNumber || "מספר עסקי"}` : "הדגמה בלבד"}</div>
+      <ContactTasks key={`tasks:${conversation.id}`} contactId={conversation.contactId} conversationId={conversation.id} userId={session.user.id} />
       <InternalNotes key={conversation.id} conversationId={conversation.id} notes={conversation.notes.map((note) => ({ id: note.id, body: note.body, createdAt: note.createdAt.toISOString(), author: { name: note.author.name } }))} />
       <div className="flex min-h-0 flex-1">
       <ChatPanel

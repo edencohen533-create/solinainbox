@@ -1,3 +1,4 @@
+import { ContactTasks } from "@/components/contacts/contact-tasks";
 import { organizationRequest } from "@/lib/organization-request";
 import { ContactDetailsEditor } from "@/components/contacts/contact-details-editor";
 import { prisma } from "@/lib/prisma";
@@ -19,8 +20,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const CONSENT_LABELS: Record<string, string> = {
-  OPTED_IN: "הסכים לקבל הודעות",
-  OPTED_OUT: "סירב לקבל הודעות",
+  OPTED_IN: "הסכים לדיוור שיווקי",
+  OPTED_OUT: "הוסר מדיוור שיווקי",
   UNKNOWN: "לא ידוע",
 };
 
@@ -75,7 +76,9 @@ export default organizationRequest(async function ContactDetailPage({
 
       <ContactDetailsEditor key={`${contact.id}:${contact.updatedAt.toISOString()}`} contact={contact} tags={tags} />
       <ContactConsentEditor key={contact.id} contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
-      <StartConversationButton contactId={contact.id} disabled={contact.consentStatus === "OPTED_OUT"} />
+      <StartConversationButton contactId={contact.id} />
+      {contact.consentStatus === "OPTED_OUT" && <p className="text-sm text-muted-foreground">הלקוח הוסר מדיוור שיווקי. ניתן לפתוח את השיחה לטיפול; מענה שירות מותר רק בהתאם לחלון ההודעות. פתיחת השיחה אינה שולחת הודעה.</p>}
+      <ContactTasks key={contact.id} contactId={contact.id} userId={session.user.id} />
       <Separator />
 
       <div>

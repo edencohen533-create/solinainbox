@@ -114,6 +114,8 @@ model User {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  assignedTasks         ContactTask[]       @relation("TaskAssignee")
+  createdTasks          ContactTask[]       @relation("TaskCreator")
   campaigns             Campaign[]
   assignedConversations Conversation[]      @relation("AssignedAgent")
   messagesSent          Message[]           @relation("SentByUser")
@@ -137,6 +139,7 @@ model Team {
 }
 
 model Contact {
+  tasks              ContactTask[]
   organizationId     String                   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   isBlocked          Boolean                  @default(false)
   consentAt          DateTime?
@@ -179,6 +182,7 @@ model ContactCustomField {
 }
 
 model Conversation {
+  tasks                ContactTask[]
   providerCredentialId String?
   providerCredential   ProviderCredential? @relation(fields: [providerCredentialId], references: [id], onDelete: Restrict)
   organizationId       String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
@@ -538,4 +542,35 @@ model Organization {
   lastCampaignScanAt   DateTime?
   lastAutomationScanAt DateTime?
   createdAt            DateTime  @default(now())
+}
+
+model ContactTask {
+  organizationId String        @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  id             String        @id @default(cuid())
+  contactId      String
+  contact        Contact       @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  assignedToId   String
+  assignedTo     User          @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  createdById    String
+  createdBy      User          @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  title          String
+  dueAt          DateTime
+  status         String        @default("OPEN")
+  version        Int           @default(0)
+  requestKey     String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  completedAt    DateTime?
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, requestKey])
+  @@index([organizationId, contactId, conversationId])
+  @@index([organizationId, assignedToId, status, dueAt])
+  @@index([organizationId, createdById])
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([conversationId])
 }
