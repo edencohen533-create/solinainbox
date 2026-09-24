@@ -26,7 +26,7 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 2.14,אנשי קשר והסכמה,סימון הסרה ידני,מומש חלקית,P0,עורך Contact עם אסמכתה וחסימה מלאה,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
 2.15,אנשי קשר והסכמה,ייבוא חוזר אינו מחזיר לדיוור,מומש ונבדק,P0,createMany skipDuplicates אינו משנה איש קשר קיים,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
 2.16,אנשי קשר והסכמה,זכאות מחדש בזמן שליחה,מומש ונבדק,P0,worker + message service לפני ספק; מרוץ לאחר הבדיקה האחרון עדיין אפשרי,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
-2.17,אנשי קשר והסכמה,הפרדת שירות משיווק,מומש ונבדק,P0,מענה בתוך חלון אפשרי אחרי opt-out שיווקי; חסימה מלאה מונעת הכול,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
+2.17,אנשי קשר והסכמה,הפרדת שירות משיווק,מומש ונבדק,P0,גם פתיחת שיחה אינה נחסמת בגלל הסרה שיווקית; בדיקת מסד מוכיחה מענה שירות בתוך חלון וחסימת שיווק ומענה מחוץ לחלון,src/server/services/contact-service.ts; message-service.ts; src/lib/contact-csv.ts; src/lib/message-policy.ts
 3.01,קהלים וסגמנטים,תגיות ושדות מותאמים בסגמנטים,מומש ונבדק,P1,תנאי תגיות ושדות מותאמים במנוע הקיים; נבדקו מול PostgreSQL מבודד,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
 3.02,קהלים וסגמנטים,מקור ליד וסטטוס CRM,מומש חלקית,P1,סינון לפי מקור ליד מומש ונבדק; אין שדה שלב CRM עצמאי,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
 3.03,קהלים וסגמנטים,סינון קהל לפי נציג,מומש חלקית,P1,סינון לפי נציג המשויך לאחת השיחות נבדק; אין בעלים עצמאי לאיש קשר,src/server/services/campaign-service.ts; prisma/schema.prisma; docs/whatsapp-saved-audiences-2026-09-23.md
@@ -115,7 +115,7 @@ id,section,requirement,status,priority,evidence_or_gap,code_path
 9.03,חיבור ל־CRM,כרטיס לקוח מתוך שיחה,מומש ונבדק,P1,contact profile וקישור Contact,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
 9.04,חיבור ל־CRM,ציר זמן WhatsApp בלקוח,מומש חלקית,P1,רשימת שיחות לקוח; לא ציר זמן CRM מלא,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
 9.05,חיבור ל־CRM,עדכון תגיות סטטוס ונציג מתוך שיחה,מומש ונבדק,P1,נתיבים קיימים ומדיניות תפקידים,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
-9.06,חיבור ל־CRM,יצירה ועדכון משימות,חסר,P1,אין Task model,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
+9.06,חיבור ל־CRM,יצירה ועדכון משימות,מומש ונבדק,P1,משימות פנימיות מתוך שיחה וכרטיס לקוח: נציג מועד וסטטוס; RLS קשרי לקוח ושיחה audit מניעת כפילות וגרסה; API מסד ומובייל עברו,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma; docs/whatsapp-crm-tasks-2026-09-24.md
 9.07,חיבור ל־CRM,רכישות והזמנות לפי הרשאה,חסום לבדיקה,P1,אין API/source; אין נתונים מדומים,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
 9.08,חיבור ל־CRM,שמירת קשרים במיזוג,חסר,P1,אין merge,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
 9.09,חיבור ל־CRM,מניעת לקוחות כפולים במקביל,מומש ונבדק,P0,unique phone; נעילת Contact לפתיחת שיחות,src/server/services/contact-service.ts; conversation-service.ts; prisma/schema.prisma
