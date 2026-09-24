@@ -33,6 +33,7 @@ const fs = require('node:fs');
     const snapshot = (await (await context.request.get(`/api/conversations/${conversation.id}`)).json()).conversation;
     assert.equal(snapshot.messages.length, 0); assert.equal(snapshot.notes.length, 0);
     fs.mkdirSync('/tmp/solina-qa-browser', { recursive: true });
+    await page.locator('summary').filter({ hasText: title }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: '/tmp/solina-qa-browser/crm-tasks-mobile.png', fullPage: true });
     assert.deepEqual(errors, []); console.log('PASS opted-out service thread, task creation/completion from inbox, persistence in customer card, mobile layout, zero outbound messages');
   } finally { await browser.close(); }
