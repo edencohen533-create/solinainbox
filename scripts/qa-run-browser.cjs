@@ -27,8 +27,8 @@ const run = (args, env = process.env) => new Promise((resolve, reject) => {
     if (i > 60) throw new Error('QA server did not start');
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  await run(['scripts/smoke-deployment.cjs', 'http://localhost:3101'], { ...process.env, SMOKE_TEST_EMAIL: 'qa-admin@example.test', SMOKE_TEST_PASSWORD: 'QA-only-Password-2026!' });
-  if (!process.argv.includes('--smoke-only')) await run(['scripts/qa-browser.cjs', ...process.argv.slice(2)]);
+  if (!process.argv.includes('--browser-only')) await run(['scripts/smoke-deployment.cjs', 'http://localhost:3101'], { ...process.env, SMOKE_TEST_EMAIL: 'qa-admin@example.test', SMOKE_TEST_PASSWORD: 'QA-only-Password-2026!' });
+  if (!process.argv.includes('--smoke-only')) await run([process.argv.includes('--automation-only') ? 'scripts/qa-automation-browser.cjs' : 'scripts/qa-browser.cjs', ...process.argv.slice(2)]);
 })().catch((error) => { console.error(error.message); process.exitCode = 1; }).finally(() => { server.kill('SIGTERM'); });
 server.on('close', () => fs.closeSync(output));
 process.on('SIGTERM', () => { server.kill('SIGTERM'); process.exit(143); });

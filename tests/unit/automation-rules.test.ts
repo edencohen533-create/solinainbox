@@ -29,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     conversation: {
       update: (...a: unknown[]) => conversationUpdate(...a),
+      updateMany: (...a: unknown[]) => conversationUpdate(...a),
       findUnique: (...a: unknown[]) => conversationFindUnique(...a),
     },
     tag: {
@@ -85,7 +86,7 @@ describe("evaluateTrigger / runRule (immediate triggers)", () => {
     automationRuleFindMany.mockResolvedValue([rule]);
     automationRuleFindUniqueOrThrow.mockResolvedValue(rule);
     automationRunCreate.mockResolvedValue({ id: "run-1" });
-    conversationUpdate.mockResolvedValue({});
+    conversationUpdate.mockResolvedValue({ count: 1 });
     automationRunUpdate.mockResolvedValue({});
 
     await evaluateTrigger(AutomationTrigger.NEW_INBOUND_MESSAGE, { conversationId: "conv-1" });
