@@ -131,7 +131,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
       <DialogTrigger render={<Button><Plus className="h-4 w-4" /> חוק אוטומציה חדש</Button>} />
       <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>חוק אוטומציה חדש</DialogTitle>
+          <DialogTitle className="ps-8">חוק אוטומציה חדש</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -143,7 +143,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
             <Label>טריגר</Label>
             <Select value={trigger} onValueChange={(v) => v && setTrigger(v as AutomationTrigger)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{TRIGGER_LABELS[trigger]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(TRIGGER_LABELS).map(([value, label]) => (
@@ -172,7 +172,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
             <Label>פעולה</Label>
             <Select value={actionType} onValueChange={(v) => v && setActionType(v as AutomationActionType)}>
               <SelectTrigger className="w-full" aria-label="פעולת האוטומציה">
-                <SelectValue />
+                <SelectValue>{ACTION_LABELS[actionType]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(ACTION_LABELS).map(([value, label]) => (
@@ -189,7 +189,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
               <Label>נציג</Label>
               <Select value={agentId} onValueChange={(v) => v && setAgentId(v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="בחר נציג..." />
+                  <SelectValue>{agents.find((agent) => agent.id === agentId)?.label ?? "בחר נציג..."}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {agents.map((agent) => (
@@ -212,7 +212,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
               <Label>סטטוס חדש</Label>
               <Select value={status} onValueChange={(v) => v && setStatus(v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>{{ OPEN: "פתוח", PENDING: "ממתין", RESOLVED: "טופל", CLOSED: "סגור" }[status]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="OPEN">פתוח</SelectItem>
@@ -234,7 +234,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
               <Label>תגובה מוכנה</Label>
               <Select value={cannedReplyId} onValueChange={(v) => v && setCannedReplyId(v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="בחר..." />
+                  <SelectValue>{cannedReplies.find((reply) => reply.id === cannedReplyId)?.label ?? "בחר תגובה..."}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {cannedReplies.map((reply) => (
@@ -252,7 +252,7 @@ export function RuleBuilder({ agents, cannedReplies, templates, conversations }:
               <Label>תבנית</Label>
               <Select value={templateId} onValueChange={(v) => { if (v) { setTemplateId(v); setVariables({}); } }}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="בחר..." />
+                  <SelectValue>{templates.find((template) => template.id === templateId)?.label ?? "בחר תבנית..."}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {templates.map((template) => (

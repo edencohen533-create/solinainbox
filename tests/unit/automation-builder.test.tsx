@@ -9,6 +9,8 @@ it("defaults to inactive and hides stale dry-run results after editing, includin
   const fetcher = vi.fn(() => new Promise((done) => { resolve = done; })); vi.stubGlobal("fetch", fetcher);
   render(<RuleBuilder agents={[]} templates={[]} cannedReplies={[]} conversations={[{ id: "c", label: "QA conversation" }]} />);
   fireEvent.click(screen.getByRole("button", { name: "חוק אוטומציה חדש" }));
+  expect(screen.getByText("הודעה נכנסת חדשה")).toBeInTheDocument();
+  expect(screen.queryByText("NEW_INBOUND_MESSAGE")).not.toBeInTheDocument();
   expect(screen.getByRole("checkbox", { name: "הפעל את החוק לאחר השמירה" })).not.toBeChecked();
   fireEvent.change(screen.getByLabelText("שם חוק האוטומציה"), { target: { value: "Before" } });
   fireEvent.change(screen.getByLabelText("שיחה לבדיקת אוטומציה"), { target: { value: "c" } });
