@@ -1,4 +1,5 @@
 "use client";
+import { CRM_STAGE_LABELS } from "@/lib/crm";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,10 +9,12 @@ export interface AudienceOptions { tags: { id: string; name: string }[]; agents:
 const selectClass = "min-w-0 w-full rounded border bg-background p-2 text-sm";
 const fields: { value: AudienceRule["field"]; label: string }[] = [
   { value: "tag", label: "תגית" }, { value: "source", label: "מקור ליד" }, { value: "custom", label: "שדה מותאם" }, { value: "agent", label: "נציג משויך בשיחה" },
+  { value: "owner", label: "אחראי CRM" }, { value: "leadStage", label: "סטטוס ליד ב־CRM" },
   { value: "consent", label: "הסכמה לדיוור" }, { value: "blocked", label: "חסימה מלאה" }, { value: "marketingEligible", label: "זכאות שיווקית כעת" },
   { value: "lastMessage", label: "הודעה אחרונה" }, { value: "lastInbound", label: "תגובה אחרונה מהלקוח" }, { value: "lastOutbound", label: "הודעה אחרונה ללקוח" }, { value: "campaign", label: "השתתפות בקמפיין" },
 ];
 function freshRule(field: AudienceRule["field"]): AudienceRule {
+  if (field === "owner" || field === "leadStage") return { field, operator: "is", value: null };
   if (field === "consent") return { field, operator: "is", value: "OPTED_IN" };
   if (field === "blocked" || field === "marketingEligible") return { field, operator: "is", value: field === "marketingEligible" };
   if (field === "custom") return { field, operator: "equals", key: "", value: "" };
@@ -31,6 +34,8 @@ function RuleEditor({ rule, onChange, options, path }: { rule: AudienceRule; onC
     {(rule.field === "custom" || rule.field === "source") && <Input maxLength={200} aria-label={`ערך תנאי ${path}`} value={rule.value} onChange={(event) => onChange({ ...rule, value: event.target.value })} />}
     {choices && (rule.field === "tag" || rule.field === "agent" || rule.field === "campaign") && <select className={selectClass} aria-label={`ערך תנאי ${path}`} value={rule.value} onChange={(event) => onChange({ ...rule, value: event.target.value })}><option value="">בחר...</option>{choices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
     {rule.field === "campaign" && <select className={selectClass} aria-label={`תוצאת קמפיין ${path}`} value={rule.result} onChange={(event) => onChange({ ...rule, result: event.target.value as typeof rule.result })}>{Object.entries({ ANY: "כל משתתף", QUEUED: "ממתין", PROCESSING: "בטיפול", SENT: "התקבל אצל הספק", FAILED: "נכשל", SKIPPED: "דולג או הוחרג", UNKNOWN: "תוצאה לא ודאית" }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>}
+    {rule.field === "owner" && <select className={selectClass} aria-label={`ערך תנאי ${path}`} value={rule.value ?? ""} onChange={(event) => onChange({ ...rule, value: event.target.value || null })}><option value="">ללא אחראי CRM</option>{options.agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select>}
+    {rule.field === "leadStage" && <select className={selectClass} aria-label={`ערך תנאי ${path}`} value={rule.value ?? ""} onChange={(event) => onChange({ ...rule, value: (event.target.value || null) as typeof rule.value })}><option value="">ללא סטטוס מתועד</option>{Object.entries(CRM_STAGE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>}
     {rule.field === "consent" && <select className={selectClass} aria-label={`ערך תנאי ${path}`} value={rule.value} onChange={(event) => onChange({ ...rule, value: event.target.value as typeof rule.value })}><option value="OPTED_IN">מסכים לדיוור</option><option value="OPTED_OUT">הוסר מדיוור</option><option value="UNKNOWN">לא תועדה הסכמה</option></select>}
     {(rule.field === "blocked" || rule.field === "marketingEligible") && <select className={selectClass} aria-label={`ערך תנאי ${path}`} value={String(rule.value)} onChange={(event) => onChange({ ...rule, value: event.target.value === "true" })}><option value="true">כן</option><option value="false">לא</option></select>}
     {["lastMessage", "lastInbound", "lastOutbound"].includes(rule.field) && "operator" in rule && (rule.field === "lastMessage" || rule.field === "lastInbound" || rule.field === "lastOutbound") && <>

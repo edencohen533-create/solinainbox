@@ -15,6 +15,8 @@ export function audienceWhere(node: AudienceNode, now = new Date()): Prisma.Cont
     // Explicit non-null guard keeps NOT/exclusions two-valued: a missing source must not disappear.
     case "source": return { AND: [{ source: { not: null } }, { source: { [node.operator]: node.value, mode: "insensitive" } }] };
     case "custom": return { customFields: { some: { key: node.key, value: { [node.operator]: node.value, mode: "insensitive" } } } };
+    case "owner": return node.value === null ? { ownerId: null } : { AND: [{ ownerId: { not: null } }, { ownerId: node.value }] };
+    case "leadStage": return node.value === null ? { leadStage: null } : { AND: [{ leadStage: { not: null } }, { leadStage: node.value }] };
     case "agent": return { conversations: { some: { assignedAgentId: node.value } } };
     case "consent": return { consentStatus: node.value };
     case "blocked": return { isBlocked: node.value };
@@ -32,10 +34,10 @@ export function audienceWhere(node: AudienceNode, now = new Date()): Prisma.Cont
 }
 export async function validateAudienceReferences(tx: Prisma.TransactionClient, node: AudienceNode) {
   const rules = audienceRules(node);
-  for (const field of ["tag", "agent", "campaign"] as const) {
-    const ids = [...new Set(rules.filter((rule) => rule.field === field).map((rule) => String(rule.value)))];
+  for (const field of ["tag", "agent", "owner", "campaign"] as const) {
+    const ids = [...new Set(rules.filter((rule) => rule.field === field && rule.value !== null).map((rule) => String(rule.value)))];
     if (!ids.length) continue;
-    const count = field === "tag" ? await tx.tag.count({ where: { id: { in: ids } } }) : field === "agent" ? await tx.user.count({ where: { id: { in: ids } } }) : await tx.campaign.count({ where: { id: { in: ids } } });
+    const count = field === "tag" ? await tx.tag.count({ where: { id: { in: ids } } }) : (field === "agent" || field === "owner") ? await tx.user.count({ where: { id: { in: ids } } }) : await tx.campaign.count({ where: { id: { in: ids } } });
     if (count !== ids.length) throw new AudienceError("אחד מפריטי הקהל אינו נגיש בעסק זה");
   }
 }

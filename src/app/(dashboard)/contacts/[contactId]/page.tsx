@@ -1,3 +1,4 @@
+import { CRM_STAGE_LABELS } from "@/lib/crm";
 import { ContactTasks } from "@/components/contacts/contact-tasks";
 import { organizationRequest } from "@/lib/organization-request";
 import { ContactDetailsEditor } from "@/components/contacts/contact-details-editor";
@@ -39,6 +40,7 @@ export default organizationRequest(async function ContactDetailPage({
     notFound();
   }
 
+  const owners = await prisma.user.findMany({ where: { OR: [{ isActive: true }, ...(contact.ownerId ? [{ id: contact.ownerId }] : [])] }, select: { id: true, name: true }, orderBy: { name: "asc" } });
   const tags = await prisma.tag.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
 
   return (
@@ -74,7 +76,8 @@ export default organizationRequest(async function ContactDetailPage({
         </div>
       )}
 
-      <ContactDetailsEditor key={`${contact.id}:${contact.updatedAt.toISOString()}`} contact={contact} tags={tags} />
+      <p className="text-sm">אחראי CRM: {owners.find((owner) => owner.id === contact.ownerId)?.name ?? "ללא אחראי"} · סטטוס ליד: {contact.leadStage ? CRM_STAGE_LABELS[contact.leadStage] : "ללא סטטוס מתועד"}</p>
+      <ContactDetailsEditor owners={owners} canManageOwner={session.user.role !== "AGENT"} key={`${contact.id}:${contact.updatedAt.toISOString()}`} contact={contact} tags={tags} />
       <ContactConsentEditor key={contact.id} contactId={contact.id} initialStatus={contact.consentStatus} initialBlocked={contact.isBlocked} />
       <StartConversationButton contactId={contact.id} />
       {contact.consentStatus === "OPTED_OUT" && <p className="text-sm text-muted-foreground">הלקוח הוסר מדיוור שיווקי. ניתן לפתוח את השיחה לטיפול; מענה שירות מותר רק בהתאם לחלון ההודעות. פתיחת השיחה אינה שולחת הודעה.</p>}

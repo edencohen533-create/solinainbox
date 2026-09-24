@@ -1,3 +1,4 @@
+import { CRM_STAGES } from "./crm";
 import { z } from "zod";
 
 const text = z.string().trim().min(1).max(200);
@@ -5,6 +6,8 @@ const leafSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("tag"), operator: z.enum(["is", "is_not"]), value: text }).strict(),
   z.object({ field: z.literal("source"), operator: z.enum(["equals", "contains"]), value: text }).strict(),
   z.object({ field: z.literal("custom"), operator: z.enum(["equals", "contains"]), key: text, value: text }).strict(),
+  z.object({ field: z.literal("owner"), operator: z.literal("is"), value: text.nullable() }).strict(),
+  z.object({ field: z.literal("leadStage"), operator: z.literal("is"), value: z.enum(CRM_STAGES).nullable() }).strict(),
   z.object({ field: z.literal("agent"), operator: z.literal("is"), value: text }).strict(),
   z.object({ field: z.literal("consent"), operator: z.literal("is"), value: z.enum(["OPTED_IN", "OPTED_OUT", "UNKNOWN"]) }).strict(),
   z.object({ field: z.literal("blocked"), operator: z.literal("is"), value: z.boolean() }).strict(),

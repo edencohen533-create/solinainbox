@@ -200,3 +200,6 @@ ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_creator_organization_fk" F
 ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_status_check" CHECK ("status" IN ('OPEN', 'DONE', 'CANCELLED'));
 ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_title_check" CHECK (length(trim("title")) BETWEEN 1 AND 200);
 ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_version_check" CHECK ("version" >= 0);
+
+ALTER TABLE "Contact" ADD CONSTRAINT "Contact_owner_organization_fk" FOREIGN KEY ("organizationId", "ownerId") REFERENCES "User"("organizationId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "Contact" ADD CONSTRAINT "Contact_leadStage_check" CHECK ("leadStage" IN ('NEW','CONTACTED','QUALIFIED','CUSTOMER','LOST'));
