@@ -182,3 +182,21 @@ ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_providerCredentialId_org
 ALTER TABLE "Campaign" ADD CONSTRAINT "Campaign_providerCredentialId_organization_fk" FOREIGN KEY ("organizationId", "providerCredentialId") REFERENCES "ProviderCredential"("organizationId", "id") ON DELETE NO ACTION;
 ALTER TABLE "ProviderCredential" ADD CONSTRAINT "ProviderCredential_teamId_organization_fk" FOREIGN KEY ("organizationId", "teamId") REFERENCES "Team"("organizationId", "id") ON DELETE NO ACTION;
 CREATE UNIQUE INDEX "ProviderCredential_one_active_default" ON "ProviderCredential"("organizationId") WHERE "isActive" AND "isDefault";
+
+-- Contact tasks: Prisma creates the table and regular indexes; these enforce business boundaries.
+CREATE UNIQUE INDEX "Conversation_organizationId_contactId_id_key" ON "Conversation"("organizationId", "contactId", "id");
+-- Security is installed in the same transaction as the new exposed table.
+ALTER TABLE "ContactTask" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE "ContactTask" FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "ContactTask" TO solina_runtime;
+CREATE POLICY "organization_isolation" ON "ContactTask" FOR ALL TO solina_runtime
+USING ("organizationId" = (SELECT NULLIF(current_setting('solina.organization_id', true), '')))
+WITH CHECK ("organizationId" = (SELECT NULLIF(current_setting('solina.organization_id', true), '')));
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_organization_fk" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_contact_organization_fk" FOREIGN KEY ("organizationId", "contactId") REFERENCES "Contact"("organizationId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_conversation_contact_fk" FOREIGN KEY ("organizationId", "contactId", "conversationId") REFERENCES "Conversation"("organizationId", "contactId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_assignee_organization_fk" FOREIGN KEY ("organizationId", "assignedToId") REFERENCES "User"("organizationId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_creator_organization_fk" FOREIGN KEY ("organizationId", "createdById") REFERENCES "User"("organizationId", "id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_status_check" CHECK ("status" IN ('OPEN', 'DONE', 'CANCELLED'));
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_title_check" CHECK (length(trim("title")) BETWEEN 1 AND 200);
+ALTER TABLE "ContactTask" ADD CONSTRAINT "ContactTask_version_check" CHECK ("version" >= 0);

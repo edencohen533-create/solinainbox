@@ -139,7 +139,7 @@ export async function startConversation(session: Session, contactId: string, age
     await tx.$queryRaw`SELECT id FROM "Contact" WHERE id = ${contactId} FOR UPDATE`;
     const contact = await tx.contact.findFirst({ where: { id: contactId, ...buildContactScope(session) } });
     if (!contact) throw new ConversationStartError("איש הקשר לא נמצא או משויך לנציג אחר");
-    if (contact.consentStatus === "OPTED_OUT") throw new ConversationStartError("איש הקשר סירב לקבל הודעות");
+    // Opening/assigning a thread sends nothing. Outbound service/marketing eligibility is enforced at send time.
     const previous = await tx.conversation.findFirst({ where: { contactId, providerCredentialId }, orderBy: { createdAt: "desc" } });
     if (session.user.role === Role.AGENT && previous?.assignedAgentId && previous.assignedAgentId !== session.user.id) throw new ConversationStartError("הליד משויך לנציג אחר");
     if (assignee && !await tx.user.findFirst({ where: { id: assignee, isActive: true, ...(sender?.teamId ? { OR: [{ teamId: sender.teamId }, { role: { in: [Role.ADMIN, Role.MANAGER] } }] } : {}) }, select: { id: true } })) throw new ConversationStartError("הנציג אינו פעיל");
