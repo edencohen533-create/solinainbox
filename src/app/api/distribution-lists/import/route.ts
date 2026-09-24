@@ -16,8 +16,10 @@ export const POST = organizationRequest(async function(request: Request) {
     // Never re-subscribe or overwrite existing contacts on import.
     const created = await tx.contact.createMany({ data: parsed.contacts.map((contact) => ({ ...contact, source: "csv", consentSource: "csv", consentScope: "marketing", consentAt: contact.consentStatus !== "UNKNOWN" ? new Date() : null })), skipDuplicates: true });
     const contacts = await tx.contact.findMany({ where: { phone: { in: parsed.contacts.map((c) => c.phone) } }, select: { id: true } });
-    const list = await tx.distributionList.create({ data: { name: input.data.name, members: { create: contacts.map((c) => ({ contactId: c.id })) } } });
+    const list = await tx.distributionList.create({ data: { name: input.data.name, members: { createMany: { data: contacts.map((c) => ({ contactId: c.id })) } } } });
     return { list, created: created.count, existing: contacts.length - created.count, duplicateRows: parsed.duplicateRows };
   }, { timeout: 30000 });
   return Response.json(result, { status: 201 });
 });
+
+export const maxDuration = 60;

@@ -61,10 +61,10 @@ describe("operational routes", () => {
   });
   it("duplicates campaign content into a new draft, not its old delivery state", async () => {
     campaignActor.mockResolvedValue({ id: "manager" });
-    db.campaign.findUnique.mockResolvedValue({ name: "Original", listId: "l", templateId: "t", variables: { "1": "{name}" }, status: "COMPLETED", scheduledAt: new Date() });
+    db.campaign.findUnique.mockResolvedValue({ name: "Original", listId: "l", excludedListIds: ["excluded"], templateId: "t", variables: { "1": "{name}" }, status: "COMPLETED", scheduledAt: new Date() });
     createCampaign.mockResolvedValue({ id: "copy", status: "DRAFT" });
     expect((await duplicate(post({}), params)).status).toBe(201);
-    expect(createCampaign).toHaveBeenCalledWith({ name: "Original — העתק", listId: "l", templateId: "t", variables: { "1": "{name}" } }, "manager");
+    expect(createCampaign).toHaveBeenCalledWith({ name: "Original — העתק", listId: "l", excludedListIds: ["excluded"], templateId: "t", variables: { "1": "{name}" } }, "manager");
   });
   it("does not re-trigger automation for an already attached tag", async () => {
     db.conversation.findFirst.mockResolvedValue({ id: "conv" }); db.tag.findUnique.mockResolvedValue({ id: "tag" });

@@ -1,3 +1,5 @@
+import { MAX_AUDIENCE_SIZE } from "@/lib/audiences";
+import { resolveAudience, AudienceError } from "./audience-service";
 import { resolveSender, ProviderUnavailableError } from "@/server/providers/provider-registry";
 import { activeSenderSnapshot, templateFingerprint } from "./campaign-snapshot";
 import { prisma } from "@/lib/prisma";
@@ -19,14 +21,21 @@ export async function createCampaign(input: z.infer<typeof campaignSchema>, acto
     if (sender?.provider === "meta_whatsapp_cloud_api" && template.providerAccountId !== (sender.config as Record<string, unknown>).businessAccountId) throw new CampaignError("התבנית אינה שייכת לחשבון WhatsApp של המספר השולח. יש לסנכרן תבניות");
     try { validateTemplateVariables(template.body, input.variables); }
     catch (error) { throw new CampaignError((error as Error).message); }
-    const list = await tx.distributionList.findUnique({ where: { id: input.listId }, include: { members: true } });
-    if (!list?.members.length) throw new CampaignError("רשימת התפוצה ריקה או לא קיימת");
-    // Snapshot membership, so later list edits cannot silently expand a scheduled send.
+    const excludedListIds = input.excludedListIds ?? [];
+    const audience = await resolveAudience(tx, input.listId, excludedListIds, new Date());
+    const contacts = await tx.contact.findMany({ where: audience.base, select: { id: true }, orderBy: { id: "asc" }, take: MAX_AUDIENCE_SIZE + 1 });
+    if (!contacts.length) throw new CampaignError("הקהל ריק כעת. יש לבדוק את תנאי הקהל");
+    if (contacts.length > MAX_AUDIENCE_SIZE) throw new CampaignError("הקהל גדול מ־10,000 אנשי קשר. יש לצמצם את התנאים לפני יצירת קמפיין");
+    const excluded = audience.exclusion ? await tx.contact.findMany({ where: { AND: [audience.base, audience.exclusion] }, select: { id: true } }) : [];
+    const excludedIds = new Set(excluded.map((contact) => contact.id));
+    // Both dynamic conditions and exclusions are frozen into recipient rows in this transaction.
     return tx.campaign.create({ data: {
-      ...input, providerCredentialId, createdById: actorUserId, senderSnapshot, templateSnapshot: templateFingerprint(template),
-      recipients: { create: list.members.map(({ contactId }) => ({ contactId })) },
+      ...input, excludedListIds, providerCredentialId, createdById: actorUserId, senderSnapshot, templateSnapshot: templateFingerprint(template),
+      audienceExcludedCount: excludedIds.size,
+      audienceSnapshot: { frozenAt: new Date().toISOString(), lists: audience.lists.map((list) => ({ id: list.id, name: list.name, segment: list.segment })) },
+      recipients: { createMany: { data: contacts.map(({ id: contactId }) => ({ contactId, ...(excludedIds.has(contactId) ? { status: "SKIPPED" as const, error: "הוחרג מהקהל ביצירת הטיוטה", completedAt: new Date() } : {}) })) } },
     } });
-  });
+  }, { isolationLevel: "RepeatableRead", timeout: 30000 }).catch((error) => { if (error instanceof AudienceError) throw new CampaignError(error.message); throw error; });
 }
 
 export async function changeCampaignStatus(id: string, action: "start" | "pause" | "resume" | "cancel", scheduledAt?: string) {
@@ -91,5 +100,5 @@ export async function campaignPreflight(id: string) {
   }
   const active = campaign.providerCredentialId ? await prisma.providerCredential.findUnique({ where: { id: campaign.providerCredentialId }, select: { provider: true, config: true, label: true, displayPhoneNumber: true } }) : null;
   const phoneNumberId = (active?.config as Record<string, unknown> | undefined)?.phoneNumberId;
-  return { eligible, totalQueued: campaign.recipients.length, exclusions, blockers, samples, sender: active ? `${active.label || active.provider} · ${active.displayPhoneNumber || String(phoneNumberId ?? "")}` : "הדגמה בלבד", audiencePolicy: "קהל מוקפא ביצירת הטיוטה; זכאות נבדקת מחדש בכל שליחה", cost: null };
+  return { eligible, audienceExcluded: campaign.audienceExcludedCount, totalQueued: campaign.recipients.length, exclusions, blockers, samples, sender: active ? `${active.label || active.provider} · ${active.displayPhoneNumber || String(phoneNumberId ?? "")}` : "הדגמה בלבד", audiencePolicy: "קהל מוקפא ביצירת הטיוטה; זכאות נבדקת מחדש בכל שליחה", cost: null };
 }
