@@ -1,0 +1,23 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { RuleBuilder } from "@/components/automations/rule-builder";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("defaults to inactive and hides stale dry-run results after editing, including a late response", async () => {
+  let resolve!: (value: unknown) => void;
+  const fetcher = vi.fn(() => new Promise((done) => { resolve = done; })); vi.stubGlobal("fetch", fetcher);
+  render(<RuleBuilder agents={[]} templates={[]} cannedReplies={[]} conversations={[{ id: "c", label: "QA conversation" }]} />);
+  fireEvent.click(screen.getByRole("button", { name: "חוק אוטומציה חדש" }));
+  expect(screen.getByRole("checkbox", { name: "הפעל את החוק לאחר השמירה" })).not.toBeChecked();
+  fireEvent.change(screen.getByLabelText("שם חוק האוטומציה"), { target: { value: "Before" } });
+  fireEvent.change(screen.getByLabelText("שיחה לבדיקת אוטומציה"), { target: { value: "c" } });
+  fireEvent.click(screen.getByRole("button", { name: "בדוק ללא ביצוע" }));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+  const payload = JSON.parse(String((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+  expect(payload.rule.isActive).toBe(false); expect(payload.conversationId).toBe("c");
+  fireEvent.change(screen.getByLabelText("שם חוק האוטומציה"), { target: { value: "After" } });
+  resolve({ ok: true, json: async () => ({ allowedLocally: true, reasons: [], body: "outdated", provider: "Mock", notice: "dry run", delayMinutes: 0 }) });
+  await waitFor(() => expect(screen.getByRole("button", { name: "בדוק ללא ביצוע" })).not.toBeDisabled());
+  expect(screen.queryByText("outdated")).not.toBeInTheDocument();
+});

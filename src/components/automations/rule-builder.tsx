@@ -41,7 +41,7 @@ interface Option {
   variables?: string[];
 }
 
-export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Option[]; cannedReplies: Option[]; templates: Option[] }) {
+export function RuleBuilder({ agents, cannedReplies, templates, conversations }: { agents: Option[]; cannedReplies: Option[]; templates: Option[]; conversations: Option[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,6 +57,10 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
   const [cannedReplyId, setCannedReplyId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [templateId, setTemplateId] = useState("");
+  const [isActive, setIsActive] = useState(false);
+  const [conversationId, setConversationId] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [preview, setPreview] = useState<{ input: string; result: { allowedLocally: boolean; reasons: string[]; body: string | null; provider: string; notice: string; delayMinutes: number } } | null>(null);
 
   function buildTriggerConfig(): Record<string, unknown> {
     if (trigger === AutomationTrigger.NO_REPLY_TIMEOUT) return { minutes: Number(minutes) || 30 };
@@ -83,6 +87,20 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
     }
   }
 
+  const rule = { name, trigger, triggerConfig: buildTriggerConfig(), actionType, actionConfig: buildActionConfig(), isActive };
+  const previewInput = JSON.stringify({ rule, conversationId });
+  async function handlePreview() {
+    const input = previewInput;
+    setTesting(true); setPreview(null);
+    try {
+      const response = await fetch("/api/automations/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: input });
+      const result = await response.json();
+      if (!response.ok) { toast.error(typeof result.error === "string" ? result.error : "פרטי הבדיקה אינם תקינים"); return; }
+      setPreview({ input, result });
+    } catch { toast.error("הבדיקה נכשלה. יש לבדוק את החיבור ולנסות שוב"); }
+    finally { setTesting(false); }
+  }
+
   async function handleSubmit() {
     if (!name.trim()) {
       toast.error("נא להזין שם לחוק");
@@ -93,14 +111,7 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
       const res = await fetch("/api/automations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          trigger,
-          triggerConfig: buildTriggerConfig(),
-          actionType,
-          actionConfig: buildActionConfig(),
-          isActive: true,
-        }),
+        body: JSON.stringify(rule),
       });
       if (!res.ok) {
         toast.error("שגיאה ביצירת החוק");
@@ -109,7 +120,8 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
       toast.success("החוק נוצר בהצלחה");
       setOpen(false);
       router.refresh();
-    } finally {
+    } catch { toast.error("שמירת החוק נכשלה. יש לבדוק את החיבור ולנסות שוב"); }
+    finally {
       setIsSubmitting(false);
     }
   }
@@ -117,14 +129,14 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button><Plus className="h-4 w-4" /> חוק אוטומציה חדש</Button>} />
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>חוק אוטומציה חדש</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>שם החוק</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="לדוגמה: שיוך אוטומטי ללקוחות VIP" />
+            <Input aria-label="שם חוק האוטומציה" value={name} onChange={(e) => setName(e.target.value)} placeholder="לדוגמה: שיוך אוטומטי ללקוחות VIP" />
           </div>
 
           <div className="space-y-1.5">
@@ -159,7 +171,7 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
           <div className="space-y-1.5">
             <Label>פעולה</Label>
             <Select value={actionType} onValueChange={(v) => v && setActionType(v as AutomationActionType)}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full" aria-label="פעולת האוטומציה">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -214,7 +226,7 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
           {actionType === AutomationActionType.ADD_INTERNAL_NOTE && (
             <div className="space-y-1.5">
               <Label>תוכן ההערה</Label>
-              <Textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} />
+              <Textarea aria-label="תוכן ההערה האוטומטית" value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} />
             </div>
           )}
           {actionType === AutomationActionType.SEND_CANNED_REPLY && (
@@ -252,6 +264,24 @@ export function RuleBuilder({ agents, cannedReplies, templates }: { agents: Opti
               </Select>
             </div>
           )}
+        </div>
+        <div className="space-y-2 rounded border p-3">
+          <label className="block text-sm">שיחה לבדיקה ללא ביצוע (50 השיחות האחרונות)
+            <select aria-label="שיחה לבדיקת אוטומציה" className="w-full rounded border p-2" value={conversationId} onChange={(event) => setConversationId(event.target.value)}>
+              <option value="">בחר שיחה</option>{conversations.map((conversation) => <option key={conversation.id} value={conversation.id}>{conversation.label}</option>)}
+            </select>
+          </label>
+          <Button variant="outline" onClick={handlePreview} disabled={testing || !conversationId || isSubmitting}>{testing ? "בודק..." : "בדוק ללא ביצוע"}</Button>
+          {preview?.input === previewInput && <div role="status" className="space-y-1 text-sm">
+            <p>{preview.result.allowedLocally ? "הבדיקות המקומיות עברו" : "הפעולה חסומה לפי הבדיקות המקומיות"}</p>
+            {preview.result.reasons.map((reason) => <p key={reason}>{reason}</p>)}
+            {preview.result.body && <p className="whitespace-pre-wrap break-words" dir="auto">{preview.result.body}</p>}
+            <p>{preview.result.provider}</p>
+            {preview.result.delayMinutes > 0 && <p>השהיה מוגדרת: {preview.result.delayMinutes} דקות; הבדיקה בוחנת את המצב כעת</p>}
+            <p className="text-muted-foreground">{preview.result.notice}</p>
+          </div>}
+          <label className="flex gap-2 text-sm"><input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />הפעל את החוק לאחר השמירה</label>
+          <p className="text-xs text-muted-foreground">ברירת המחדל היא חוק לא פעיל. הבדיקה אינה מפעילה את החוק ואינה שולחת הודעות.</p>
         </div>
         <DialogFooter>
           <Button onClick={handleSubmit} disabled={isSubmitting}>

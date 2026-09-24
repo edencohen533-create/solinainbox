@@ -135,8 +135,11 @@ export async function executeAction(
     case AutomationActionType.ASSIGN_AGENT: {
       const agentId = config.agentId as string | undefined;
       if (!agentId) return { skipped: "no agentId configured" };
-      if (!await prisma.user.findFirst({ where: { id: agentId, isActive: true }, select: { id: true } })) return { skipped: "agent unavailable" };
-      await prisma.conversation.update({ where: { id: conversationId }, data: { assignedAgentId: agentId } });
+      const agent = await prisma.user.findFirst({ where: { id: agentId, isActive: true }, select: { id: true, role: true, teamId: true } });
+      if (!agent) return { skipped: "agent unavailable" };
+      const teamScope: Prisma.ConversationWhereInput = agent.role === Role.AGENT ? { OR: [{ providerCredentialId: null }, { providerCredential: { teamId: null } }, ...(agent.teamId ? [{ providerCredential: { teamId: agent.teamId } }] : [])] } : {};
+      const assigned = await prisma.conversation.updateMany({ where: { id: conversationId, ...teamScope }, data: { assignedAgentId: agentId } });
+      if (!assigned.count) return { skipped: "conversation unavailable or agent outside number team" };
       await writeAuditLog({
         action: "automation.assigned",
         entityType: "Conversation",

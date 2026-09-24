@@ -15,21 +15,23 @@ import { Button } from "@/components/ui/button";
 
 export default organizationRequest(async function AutomationsPage() {
   if (!hasRole(await auth(), ROLES_ADMIN_MANAGER)) return <AccessDenied />;
-  const [rules, agents, cannedReplies, templates] = await Promise.all([
+  const [rules, agents, cannedReplies, templates, conversations] = await Promise.all([
     listRules(),
     prisma.user.findMany({ where: { role: { in: [Role.AGENT, Role.MANAGER] }, isActive: true }, select: { id: true, name: true } }),
     prisma.cannedReply.findMany({ select: { id: true, title: true } }),
     prisma.template.findMany({ where: { status: "APPROVED" }, select: { id: true, name: true, body: true } }),
+    prisma.conversation.findMany({ orderBy: { lastMessageAt: "desc" }, take: 50, select: { id: true, contact: { select: { name: true, phone: true } } } }),
   ]);
 
   return (
-    <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="p-3 sm:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">אוטומציות</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" render={<Link href="/automations/history">היסטוריית הרצות</Link>} />
           <StopAutomationsButton />
           <RuleBuilder
+            conversations={conversations.map((c) => ({ id: c.id, label: `${c.contact.name} (${c.contact.phone})` }))}
             agents={agents.map((a) => ({ id: a.id, label: a.name }))}
             cannedReplies={cannedReplies.map((c) => ({ id: c.id, label: c.title }))}
             templates={templates.map((t) => ({ id: t.id, label: t.name, variables: templateParameterKeys(t.body) }))}

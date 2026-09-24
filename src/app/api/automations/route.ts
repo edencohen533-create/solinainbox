@@ -1,3 +1,4 @@
+import { AutomationPreviewError, validateAutomationReferences } from "@/server/services/automation-preview-service";
 import { organizationRequest } from "@/lib/organization-request";
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
@@ -17,6 +18,12 @@ export const POST = organizationRequest(async function(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const rule = await prisma.automationRule.create({ data: { ...parsed.data, actionConfig: parsed.data.actionConfig as Prisma.InputJsonObject, triggerConfig: parsed.data.triggerConfig as Prisma.InputJsonObject } });
+  try { await validateAutomationReferences(parsed.data); }
+  catch (error) { if (error instanceof AutomationPreviewError) return NextResponse.json({ error: error.message }, { status: 400 }); throw error; }
+  const rule = await prisma.$transaction(async (tx) => {
+    const created = await tx.automationRule.create({ data: { ...parsed.data, actionConfig: parsed.data.actionConfig as Prisma.InputJsonObject, triggerConfig: parsed.data.triggerConfig as Prisma.InputJsonObject } });
+    await tx.auditLog.create({ data: { actorUserId: session!.user.id, action: "automation.created", entityType: "AutomationRule", entityId: created.id, metadata: { isActive: created.isActive } } });
+    return created;
+  });
   return NextResponse.json({ rule }, { status: 201 });
 });
