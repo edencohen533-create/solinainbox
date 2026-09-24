@@ -18,10 +18,12 @@ This extends `DistributionList` and `Campaign`; it does not introduce a second l
 
 `src/lib/audiences.ts`: strict bounded schemas. `src/server/services/audience-service.ts`: parameterized Prisma predicates, reference authorization, counts and selection. `distribution-list-service.ts`: audited saves. `src/components/campaigns/audience-editor.tsx`: editor and preview. Existing campaign UI/services and list APIs are extended; preview uses `POST /api/distribution-lists/preview` with manager/admin authorization.
 
-Migration `20260923144704_whatsapp_saved_audiences.sql` adds nullable segment JSON to lists and exclusion IDs/snapshot/count to campaigns. Existing rows remain static lists, with zero exclusions. No new table, browser grant or environment variable is needed; existing business RLS remains in force.
+Migration `20260924010220_whatsapp_saved_audiences.sql` adds nullable segment JSON to lists and exclusion IDs/snapshot/count to campaigns. Existing rows remain static lists, with zero exclusions. No new table, browser grant or environment variable is needed; existing business RLS remains in force.
 
 ## Validation status
 
-157 unit/component tests passed, as did TypeScript and lint. All 21 real PostgreSQL/API/worker tests in four files passed in 1355.01 seconds, including the actual 10,000-row import and 10,000-recipient draft. The bulk case took 72.914 seconds including several API/database assertions; it is not a single-request timing. The additive migration rehearsal passed and its probe transaction rolled back. The final production build also passed on 2026-09-24. Full browser QA and production rollout are pending. No live Meta acceptance is claimed.
+157 unit/component tests passed, as did TypeScript and lint. All 21 real PostgreSQL/API/worker tests in four files passed in 1355.01 seconds, including the actual 10,000-row import and 10,000-recipient draft. The bulk case took 72.914 seconds including several API/database assertions; it is not a single-request timing. The additive migration rehearsal passed and its probe transaction rolled back. The final production build also passed on 2026-09-24. Full browser QA and application promotion are pending. No live Meta acceptance is claimed.
 
 New tests cover bounded predicates, foreign/negative references, late-preview races, real nested AND/OR/exclusions, frozen membership despite later edits, opt-out after activation, latest-message date semantics, previous campaign result selection, and a 10,000-row API import plus a 10,000-recipient draft in isolated PostgreSQL without activating that bulk campaign. The older 10,000-recipient worker test uses a mocked database/provider and is not a live throughput benchmark.
+
+Production migration applied on 2026-09-24 as `20260924010220_whatsapp_saved_audiences`. Preflight found 262 contacts, 459 messages and zero active Meta numbers/campaigns/lists. Security advisor returned no findings after the additive migration.
