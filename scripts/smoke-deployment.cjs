@@ -20,7 +20,7 @@ async function request(path, options = {}, authenticated = true) {
     const response = await request(path, {}, false); await response.body?.cancel();
     assert.equal(response.status, status, `${path}: unexpected public response`); console.log(`PASS public ${path}: ${status}`);
   }
-  for (const [path, status] of [['/api/automations/stop', 403], ['/api/campaigns/unknown/duplicate', 403], ['/api/conversations/unknown/notes', 401]]) {
+  for (const [path, status] of [['/api/automations/preview', 403], ['/api/automations/stop', 403], ['/api/campaigns/unknown/duplicate', 403], ['/api/conversations/unknown/notes', 401]]) {
     const response = await request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }, false);
     await response.body?.cancel(); assert.equal(response.status, status, `${path}: anonymous mutation allowed`);
     console.log(`PASS public POST ${path}: ${status}`);
@@ -38,6 +38,9 @@ async function request(path, options = {}, authenticated = true) {
   const session = await sessionResponse.json();
   assert.ok(session.user?.id, 'Authenticated session was not established');
   console.log(`PASS authenticated session (${session.user.role})`);
+  const preview = await request('/api/automations/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  await preview.body?.cancel(); assert.equal(preview.status, 400, 'Authenticated preview must reject missing input without writes');
+  console.log('PASS authenticated dry-run rejects invalid input');
   for (const path of ['/inbox', '/campaigns', '/templates', '/contacts', '/automations', '/settings/whatsapp', '/api/campaigns', '/api/distribution-lists', '/api/templates', '/api/conversations']) {
     const response = await request(path); assert.equal(response.status, 200, `${path}: authenticated request failed`);
     const text = await response.text(); assert.ok(!text.includes('passwordHash'), `${path}: passwordHash leaked`);
