@@ -100,6 +100,7 @@ enum AutomationRunStatus {
 // ---------- Models ----------
 
 model User {
+  ownedContacts  Contact[]    @relation("ContactOwner")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "User_organization_fk")
   organizationId String       @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id             String       @id @default(cuid())
@@ -139,6 +140,9 @@ model Team {
 }
 
 model Contact {
+  ownerId            String?
+  owner              User?                    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  leadStage          String?                  @default("NEW")
   tasks              ContactTask[]
   organizationId     String                   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   isBlocked          Boolean                  @default(false)
@@ -166,6 +170,9 @@ model Contact {
   @@unique([organizationId, phone])
   @@index([phone])
   @@index([name])
+  @@index([organizationId, ownerId])
+  @@index([ownerId])
+  @@index([organizationId, leadStage])
   @@index([organizationId])
 }
 

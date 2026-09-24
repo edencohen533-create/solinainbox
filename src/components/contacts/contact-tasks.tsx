@@ -13,7 +13,7 @@ function TaskEditor({ task, assignees, checkedAt, saved }: { task: Task; assigne
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      const response = await fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, dueAt: new Date(dueAt).toISOString(), assignedToId, status, version: task.version }) });
+      const response = await fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, dueAt: new Date(dueAt).toISOString(), ...(assignedToId !== task.assignedToId ? { assignedToId } : {}), status, version: task.version }) });
       const data = await response.json(); if (!response.ok) { setError(data.error || "שמירת המשימה נכשלה"); return; }
       await saved();
     } catch { setError("לא ניתן לאמת את העדכון. יש לרענן את הרשימה לפני ניסיון נוסף"); }

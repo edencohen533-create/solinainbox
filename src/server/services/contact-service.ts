@@ -2,10 +2,12 @@ import { requireOrganizationId } from "@/lib/organization-context";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
 import { writeAuditLog } from "@/lib/audit";
-import type { ContactInput } from "@/lib/validation/contact";
+import type { ContactInput, ContactUpdateInput } from "@/lib/validation/contact";
 import type { Session } from "next-auth";
 import { buildConversationScope, buildContactScope } from "./conversation-service";
 import type { Prisma } from "@prisma/client";
+
+export class ContactUpdateError extends Error { constructor(message: string, public status = 400) { super(message); } }
 
 export class DuplicateContactError extends Error {
   constructor(public phone: string) {
@@ -93,11 +95,17 @@ export async function createContact(input: ContactInput, actorUserId: string) {
   return contact;
 }
 
-export async function updateContact(id: string, input: Partial<ContactInput>, actorUserId: string, session: Session) {
+export async function updateContact(id: string, input: ContactUpdateInput, actorUserId: string, session: Session) {
   const data: Prisma.ContactUpdateInput = {};
 
   if (input.customFields !== undefined) data.customFields = { deleteMany: {}, create: input.customFields };
   if (input.tagIds !== undefined) data.tags = { deleteMany: {}, create: input.tagIds.map((tagId) => ({ tag: { connect: { id: tagId } } })) };
+  if (input.leadStage !== undefined) data.leadStage = input.leadStage;
+  if (input.ownerId !== undefined) {
+    if (session.user.role === "AGENT") throw new ContactUpdateError("רק מנהל יכול לשנות אחראי CRM", 403);
+    if (input.ownerId && !await prisma.user.findFirst({ where: { id: input.ownerId, isActive: true }, select: { id: true } })) throw new ContactUpdateError("האחראי אינו פעיל או אינו נגיש בעסק זה");
+    data.owner = input.ownerId ? { connect: { id: input.ownerId } } : { disconnect: true };
+  }
   if (input.name !== undefined) data.name = input.name;
   if (input.email !== undefined) data.email = input.email || null;
   if (input.source !== undefined) data.source = input.source;
@@ -120,15 +128,12 @@ export async function updateContact(id: string, input: Partial<ContactInput>, ac
     data.phone = normalizedPhone;
   }
 
-  const contact = await prisma.contact.update({ where: { id, AND: [buildContactScope(session)] }, data });
-
-  await writeAuditLog({
-    actorUserId,
-    action: "contact.updated",
-    entityType: "Contact",
-    entityId: contact.id,
-    metadata: { fields: Object.keys(input), ...(input.consentStatus ? { consentStatus: input.consentStatus, consentSource: input.consentSource || "manual", consentEvidence: input.consentEvidence ?? null, scope: "marketing" } : {}), ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}) },
-  });
-
-  return contact;
+  return prisma.$transaction(async (tx) => {
+    const contact = await tx.contact.update({ where: { id, AND: [buildContactScope(session)] }, data });
+    await tx.auditLog.create({ data: {
+      actorUserId, action: "contact.updated", entityType: "Contact", entityId: contact.id,
+      metadata: { fields: Object.keys(input), ...(input.ownerId !== undefined ? { ownerId: input.ownerId } : {}), ...(input.leadStage !== undefined ? { leadStage: input.leadStage } : {}), ...(input.consentStatus ? { consentStatus: input.consentStatus, consentSource: input.consentSource || "manual", consentEvidence: input.consentEvidence ?? null, scope: "marketing" } : {}), ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}) },
+    } });
+    return contact;
+  }, { timeout: 30000 });
 }

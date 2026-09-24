@@ -1,3 +1,4 @@
+import { CRM_STAGES } from "@/lib/crm";
 import { z } from "zod";
 import { ConsentStatus } from "@prisma/client";
 
@@ -15,3 +16,6 @@ export const contactSchema = z.object({
 });
 
 export type ContactInput = z.infer<typeof contactSchema>;
+
+export const contactUpdateSchema = contactSchema.partial().extend({ ownerId: z.string().min(1).max(200).nullable().optional(), leadStage: z.enum(CRM_STAGES).nullable().optional() });
+export type ContactUpdateInput = z.infer<typeof contactUpdateSchema>;

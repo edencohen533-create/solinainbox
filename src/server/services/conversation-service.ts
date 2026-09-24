@@ -54,7 +54,8 @@ export function buildConversationScope(session: Session, filter: ConversationLis
 
 export function buildContactScope(session: Session): Prisma.ContactWhereInput {
   return session.user.role === "AGENT" ? { OR: [
-    { conversations: { none: {} } },
+    { ownerId: session.user.id },
+    { ownerId: null, conversations: { none: {} } },
     { conversations: { some: buildConversationScope(session) } },
   ] } : {};
 }
