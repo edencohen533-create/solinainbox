@@ -1,10 +1,13 @@
+import { audienceSchema } from "./audiences";
 import { z } from "zod";
 
 export const distributionListSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  contactIds: z.array(z.string().min(1)).min(1).max(10000).transform((ids) => [...new Set(ids)]),
-});
+  contactIds: z.array(z.string().min(1)).max(10000).transform((ids) => [...new Set(ids)]).default([]),
+  segment: audienceSchema.nullable().optional(),
+}).refine((input) => input.segment ? input.contactIds.length === 0 : input.contactIds.length > 0, "יש לבחור אנשי קשר או תנאי קהל, ולא את שניהם");
 export const campaignSchema = z.object({
+  excludedListIds: z.array(z.string().min(1)).max(20).transform((ids) => [...new Set(ids)]).optional(),
   providerCredentialId: z.string().min(1).nullable().optional(),
   name: z.string().trim().min(1).max(120),
   listId: z.string().min(1),

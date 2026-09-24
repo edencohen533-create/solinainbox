@@ -1,17 +1,15 @@
 import { organizationRequest } from "@/lib/organization-request";
-import { prisma } from "@/lib/prisma";
 import { campaignActor } from "@/lib/campaign-auth";
 import { distributionListSchema } from "@/lib/campaigns";
-
+import { AudienceError } from "@/server/services/audience-service";
+import { saveDistributionList } from "@/server/services/distribution-list-service";
 export const PUT = organizationRequest(async function(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!await campaignActor()) return Response.json({ error: "אין הרשאה" }, { status: 403 });
-  const { id } = await params;
+  const actor = await campaignActor();
+  if (!actor) return Response.json({ error: "אין הרשאה" }, { status: 403 });
   const parsed = distributionListSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: "רשימה לא תקינה" }, { status: 400 });
-  if (!await prisma.distributionList.findUnique({ where: { id } })) return Response.json({ error: "לא נמצא" }, { status: 404 });
-  if (await prisma.contact.count({ where: { id: { in: parsed.data.contactIds } } }) !== parsed.data.contactIds.length) return Response.json({ error: "איש קשר לא קיים" }, { status: 400 });
-  const list = await prisma.distributionList.update({ where: { id }, data: {
-    name: parsed.data.name, members: { deleteMany: {}, create: parsed.data.contactIds.map((contactId) => ({ contactId })) },
-  } });
-  return Response.json({ list });
+  if (!parsed.success) return Response.json({ error: "תנאי קהל או רשימה אינם תקינים" }, { status: 400 });
+  try { return Response.json({ list: await saveDistributionList(parsed.data, actor.id, (await params).id) }); }
+  catch (error) { if (error instanceof AudienceError) return Response.json({ error: error.message }, { status: 400 }); throw error; }
 });
+
+export const maxDuration = 60;

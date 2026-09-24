@@ -454,6 +454,7 @@ enum RecipientStatus {
 }
 
 model DistributionList {
+  segment        Json?
   organizationId String                   @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
   id             String                   @id @default(cuid())
   name           String
@@ -477,25 +478,28 @@ model DistributionListMember {
 }
 
 model Campaign {
-  providerCredentialId String?
-  providerCredential   ProviderCredential? @relation(fields: [providerCredentialId], references: [id], onDelete: Restrict)
-  organizationId       String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
-  senderSnapshot       String?
-  templateSnapshot     String?
-  id                   String              @id @default(cuid())
-  name                 String
-  listId               String
-  list                 DistributionList    @relation(fields: [listId], references: [id])
-  templateId           String
-  template             Template            @relation(fields: [templateId], references: [id])
-  variables            Json                @default("{}")
-  createdById          String
-  createdBy            User                @relation(fields: [createdById], references: [id])
-  status               CampaignStatus      @default(DRAFT)
-  scheduledAt          DateTime?
-  recipients           CampaignRecipient[]
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  excludedListIds       Json                @default("[]")
+  audienceSnapshot      Json?
+  audienceExcludedCount Int                 @default(0)
+  providerCredentialId  String?
+  providerCredential    ProviderCredential? @relation(fields: [providerCredentialId], references: [id], onDelete: Restrict)
+  organizationId        String              @default(dbgenerated("COALESCE(NULLIF(current_setting('solina.organization_id', true), ''), 'legacy')"))
+  senderSnapshot        String?
+  templateSnapshot      String?
+  id                    String              @id @default(cuid())
+  name                  String
+  listId                String
+  list                  DistributionList    @relation(fields: [listId], references: [id])
+  templateId            String
+  template              Template            @relation(fields: [templateId], references: [id])
+  variables             Json                @default("{}")
+  createdById           String
+  createdBy             User                @relation(fields: [createdById], references: [id])
+  status                CampaignStatus      @default(DRAFT)
+  scheduledAt           DateTime?
+  recipients            CampaignRecipient[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   @@index([providerCredentialId])
   @@index([status, scheduledAt])

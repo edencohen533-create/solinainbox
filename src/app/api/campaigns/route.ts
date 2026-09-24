@@ -18,3 +18,5 @@ export const POST = organizationRequest(async function(request: Request) {
     throw error;
   }
 });
+
+export const maxDuration = 60;
